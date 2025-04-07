@@ -130,4 +130,4 @@ if uploaded_file:
 
 # Footer
 st.markdown("---")
-st.markdown("📍 Hecho con ❤️ por el equipo de **BPO Innovations**")
+st.markdown("📍 Hecho por el equipo de **BPO Innovations**")
