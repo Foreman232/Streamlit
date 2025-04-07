@@ -1,39 +1,72 @@
-# 🧠 Procesador de Archivos BPO
 
-Aplicación profesional construida con Streamlit que permite cargar archivos Excel (.xlsx), limpiarlos automáticamente, corregir fechas, y asignar agentes BPO con lógica de distribución proporcional.
+# 📁 Procesador de Archivos BPO
 
-## 🚀 Características
+Bienvenido al procesador de archivos Excel para el equipo de BPO Innovations. Esta aplicación te permite:
 
-- Interfaz amigable y profesional con fondo oscuro.
-- Subida de archivos mediante drag & drop.
-- Validación y limpieza automática de datos.
-- Asignación proporcional de agentes.
-- Descarga del archivo procesado.
+✅ Cargar un archivo `.xlsx` con datos de clientes.  
+✅ Corregir automáticamente fechas, completar campos vacíos y distribuir clientes entre agentes BPO.  
+✅ Descargar el archivo listo para usar con solo un clic.
 
-## 📁 Estructura del Proyecto
+---
+
+## 🚀 ¿Cómo funciona?
+
+1. Carga un archivo Excel desde tu computadora.
+2. El sistema limpia y transforma los datos automáticamente.
+3. Se genera un nuevo archivo `.xlsx` con los siguientes ajustes:
+   - Fechas formateadas correctamente.
+   - Clientes asignados de forma equitativa entre agentes BPO.
+   - Campos clave rellenados para CRM.
+
+---
+
+## 📦 Estructura del proyecto
 
 ```
-📂 Procesador_BPO_Streamlit_Full
-├── app_streamlit_bpo_final.py     # Código principal de la app
-├── requirements.txt               # Dependencias del proyecto
-├── README.md                      # Este archivo
-└── images/
-    └── trayectoria.png            # Imagen visual de la app
+📁 images/
+   └── trayectoria.png
+📄 app_streamlit_bpo_final.py
+📄 requirements.txt
 ```
 
-## ▶️ ¿Cómo ejecutar?
+---
 
-1. Instala las dependencias:
-```bash
-pip install -r requirements.txt
-```
+## ⚙️ Instalación local
 
-2. Ejecuta la app localmente:
-```bash
-streamlit run app_streamlit_bpo_final.py
-```
+1. Clona el repositorio  
+   ```bash
+   git clone https://github.com/tu-usuario/tu-repo.git
+   cd tu-repo
+   ```
 
-3. También puedes desplegarla en [Streamlit Cloud](https://streamlit.io/cloud) fácilmente.
+2. Instala las dependencias  
+   ```bash
+   pip install -r requirements.txt
+   ```
 
-## 🧑‍💻 Desarrollado por
-**Equipo BPO Innovations** ❤️
+3. Ejecuta la app  
+   ```bash
+   streamlit run app_streamlit_bpo_final.py
+   ```
+
+---
+
+## 🌐 Despliegue en Streamlit Cloud
+
+Solo sube los archivos a tu repositorio y conecta tu cuenta de GitHub con [Streamlit Cloud](https://streamlit.io/cloud).
+
+---
+
+## ✨ Interfaz profesional
+
+- Diseño moderno con fondo oscuro.
+- Imagen personalizada de BPO Innovations.
+- Botones claros y organizados.
+- Respuesta inmediata al cargar el archivo.
+
+---
+
+## 👨‍💻 Desarrollado por
+
+Equipo de Automatización  
+**BPO Innovations**
