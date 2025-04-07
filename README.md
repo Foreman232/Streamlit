@@ -1,24 +1,39 @@
-# Procesador de Archivos BPO 📊
+# 🧠 Procesador de Archivos BPO
 
-Esta app permite subir un archivo Excel con información logística, corregir automáticamente las fechas de recolección y asignar agentes BPO de forma equilibrada.
+Aplicación profesional construida con Streamlit que permite cargar archivos Excel (.xlsx), limpiarlos automáticamente, corregir fechas, y asignar agentes BPO con lógica de distribución proporcional.
 
-## ¿Qué hace esta app?
-- Limpia los datos del archivo Excel.
-- Corrige la fecha de recolección según reglas de negocio.
-- Asigna automáticamente agentes de BPO.
-- Descarga el archivo limpio y listo para usar.
+## 🚀 Características
 
-## ¿Cómo usarla?
-1. Sube tu archivo `.xlsx`.
-2. La app procesará el contenido.
-3. Descarga el archivo corregido.
+- Interfaz amigable y profesional con fondo oscuro.
+- Subida de archivos mediante drag & drop.
+- Validación y limpieza automática de datos.
+- Asignación proporcional de agentes.
+- Descarga del archivo procesado.
 
-## Requisitos
-- Python 3.7+
-- Streamlit
-- Pandas
-- Openpyxl
+## 📁 Estructura del Proyecto
 
----
+```
+📂 Procesador_BPO_Streamlit_Full
+├── app_streamlit_bpo_final.py     # Código principal de la app
+├── requirements.txt               # Dependencias del proyecto
+├── README.md                      # Este archivo
+└── images/
+    └── trayectoria.png            # Imagen visual de la app
+```
 
-**Desarrollado por el equipo de BPO Innovations 💚**
+## ▶️ ¿Cómo ejecutar?
+
+1. Instala las dependencias:
+```bash
+pip install -r requirements.txt
+```
+
+2. Ejecuta la app localmente:
+```bash
+streamlit run app_streamlit_bpo_final.py
+```
+
+3. También puedes desplegarla en [Streamlit Cloud](https://streamlit.io/cloud) fácilmente.
+
+## 🧑‍💻 Desarrollado por
+**Equipo BPO Innovations** ❤️
