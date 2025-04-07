@@ -6,10 +6,8 @@ from datetime import datetime, timedelta
 import base64
 import time
 
-# Configuración de página
 st.set_page_config(layout="wide", page_title="📁 Procesador BPO", page_icon="📊")
 
-# Estilo personalizado
 st.markdown("""
     <style>
     body { background-color: #1E1E1E; color: white; }
@@ -25,17 +23,13 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# Logo + título
 col1, col2 = st.columns([1, 5])
 with col1:
-    st.image("images/bpo_logo.png", width=100)
+    st.image("images/bpo_character.png", width=100)
 with col2:
     st.title("📁 Procesador BPO")
     st.caption("Automatiza limpieza de datos y asignación de agentes BPO para tu archivo Excel.")
 
-st.image("images/bpo_character.png", width=200)
-
-# Expander de ayuda
 with st.expander("ℹ️ ¿Qué hace esta herramienta?"):
     st.markdown("""
     - Corrige campos vacíos o incorrectos.
@@ -43,16 +37,13 @@ with st.expander("ℹ️ ¿Qué hace esta herramienta?"):
     - Descarga un archivo limpio, listo para usar.
     """)
 
-# Subida de archivo
 uploaded_file = st.file_uploader("📤 Sube tu archivo Excel para procesar", type=["xlsx"])
 
-# Fechas clave
 fecha_actual = datetime.today()
 fecha_siguiente = fecha_actual + timedelta(days=1)
 fecha_oportunidad = f"{fecha_actual.day}-{fecha_actual.strftime('%b').lower()}-{fecha_actual.year}"
 fecha_cierre = fecha_actual.strftime("%d/%m/%Y")
 
-# Funciones
 def remove_accents(text):
     if isinstance(text, str):
         return ''.join(c for c in unicodedata.normalize('NFD', text) if unicodedata.category(c) != 'Mn')
@@ -118,6 +109,16 @@ if uploaded_file:
             df.at[idx, "Agente BPO"] = agente
             i += 1
 
+        # Eliminar columnas adicionales no deseadas
+        columnas_a_eliminar = [
+            "Código de llamada", "Cantidad Confirmada", "Persona", "Puesto", "Comentarios",
+            "Del Block", "Diferencia de Pallets", "Porcentaje de variación", "Variación",
+            "Coordinador LT.1", "Respuesta", "Comentarios adicionales", "Seguimiento"
+        ]
+        for col in columnas_a_eliminar:
+            if col in df.columns:
+                df.drop(columns=col, inplace=True)
+
         st.success("✅ Archivo procesado con éxito")
         st.markdown("### 👀 Vista previa")
         st.dataframe(df.head(15), use_container_width=True)
@@ -133,7 +134,5 @@ if uploaded_file:
                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
             )
 
-# Footer
 st.markdown("---")
-st.markdown("📬 ¿Necesitas ayuda? Escríbenos a [axel.sambrano@bpoinnovations.com](mailto:soporte@bpoinnovations.com)")
 st.caption("🚀 Creado por el equipo de BPO Innovations")
