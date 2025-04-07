@@ -1,54 +1,20 @@
 
 import streamlit as st
 import pandas as pd
-from datetime import datetime, timedelta
 import unicodedata
-from io import BytesIO
+from datetime import datetime, timedelta
+import io
 
-st.set_page_config(page_title="Procesador BPO", page_icon="📊", layout="wide")
+# Configuración de la app
+st.set_page_config(page_title="Procesador BPO", layout="wide")
 
-# CSS personalizado
-st.markdown("""
-    <style>
-    .title-text {
-        text-align: center;
-        font-size: 2.8em;
-        font-weight: 700;
-        color: #ffffff;
-        margin-bottom: 0.2em;
-    }
-    .sub-text {
-        text-align: center;
-        font-size: 1.2em;
-        color: #CCCCCC;
-        margin-bottom: 2em;
-    }
-    .footer {
-        text-align: center;
-        margin-top: 4rem;
-        font-size: 0.9em;
-        color: #888;
-    }
-    </style>
-""", unsafe_allow_html=True)
-
-col1, col2 = st.columns([1, 2])
-
-with col1:
-    st.image("trayectoria.png", width=280)
-
-with col2:
-    st.image("bpo_innovations_logo.jpg", width=160)
-    st.markdown('<div class="title-text">📊 Procesador de Archivos BPO</div>', unsafe_allow_html=True)
-    st.markdown('<div class="sub-text">Sube tu archivo Excel y descarga uno limpio con fechas corregidas y agentes BPO asignados automáticamente.</div>', unsafe_allow_html=True)
-
-uploaded_file = st.file_uploader("📤 Sube tu archivo Excel (.xlsx)", type="xlsx")
-
+# Función para remover tildes
 def remove_accents(text):
     if isinstance(text, str):
         return ''.join(c for c in unicodedata.normalize('NFD', text) if unicodedata.category(c) != 'Mn')
     return text
 
+# Función para asignar fecha
 def asignar_fecha(row, fecha_actual, fecha_siguiente):
     if isinstance(row, str):
         valor = row.strip().lower()
@@ -62,26 +28,36 @@ def asignar_fecha(row, fecha_actual, fecha_siguiente):
     except:
         return row
 
+# Encabezado visual
+col1, col2, col3 = st.columns([1, 2, 1])
+with col1:
+    st.image("trayectoria.png", width=300)
+with col2:
+    st.image("bpo_innovations_logo.jpg", width=150)
+    st.markdown("## :bar_chart: Procesador de Archivos BPO")
+    st.markdown("Sube tu archivo Excel y descarga uno limpio con fechas corregidas y agentes BPO asignados automáticamente.")
+
+# Subir archivo
+uploaded_file = st.file_uploader("📂 Sube tu archivo Excel (.xlsx)", type=["xlsx"])
 if uploaded_file:
     try:
-        df = pd.read_excel(uploaded_file, sheet_name=0)
-
         fecha_actual = datetime.today()
         fecha_siguiente = fecha_actual + timedelta(days=1)
         fecha_cierre = f"{fecha_actual.day}/{fecha_actual.month}/{fecha_actual.year}"
-        meses_es = {
-            1: "ene", 2: "feb", 3: "mar", 4: "abr", 5: "may", 6: "jun",
-            7: "jul", 8: "ago", 9: "sep", 10: "oct", 11: "nov", 12: "dic"
-        }
+
+        meses_es = {1: "ene", 2: "feb", 3: "mar", 4: "abr", 5: "may", 6: "jun", 7: "jul", 8: "ago", 9: "sep", 10: "oct", 11: "nov", 12: "dic"}
         mes_in_spanish = meses_es[fecha_actual.month]
         fecha_oportunidad = f"{fecha_actual.day}-{mes_in_spanish}-{fecha_actual.year}"
+
+        df = pd.read_excel(uploaded_file)
 
         df["Esquema"] = df["Esquema"].fillna("SIN ASIGNAR").apply(lambda x: "SIN ASIGNAR" if x not in ["Dedicado", "Regular"] else x)
         df["Coordinador LT"] = df["Coordinador LT"].fillna("SIN ASIGNAR").replace("#N/A", "SIN ASIGNAR")
         df["Shpt Haulier Name"] = df["Shpt Haulier Name"].fillna("Sin Asignar").apply(remove_accents)
         df["Ejecutivo RBO"] = df["Ejecutivo RBO"].fillna("SIN ASIGNAR").replace(["#N/A", "N/A"], "SIN ASIGNAR")
         df["Motivo"] = df["Motivo"].fillna("#N/A").apply(remove_accents).replace("N/A", "#N/A")
-        df["Día de recolección"] = df["Día de recolección"].apply(lambda x: asignar_fecha(x, fecha_actual, fecha_siguiente))
+
+        df["Día de recolección"] = df["Día de recolección"].apply(lambda row: asignar_fecha(row, fecha_actual, fecha_siguiente))
         df.rename(columns={"Día de recolección": "Fecha de recolección"}, inplace=True)
 
         df["Nombre de oportunidad1"] = df["Delv Ship-To Name"] + " " + fecha_oportunidad
@@ -112,12 +88,10 @@ if uploaded_file:
         total_registros = df.shape[0]
         registros_por_agente = total_registros // len(agentes_bpo)
         faltantes = {agente: max(0, registros_por_agente - asignaciones[agente]) for agente in agentes_bpo}
-
         for agente in agentes_bpo:
             for _ in range(faltantes[agente]):
                 if indices_sin_asignar:
                     df.at[indices_sin_asignar.pop(0), "Agente BPO"] = agente
-
         i = 0
         while indices_sin_asignar:
             idx = indices_sin_asignar.pop(0)
@@ -125,19 +99,26 @@ if uploaded_file:
             df.at[idx, "Agente BPO"] = agente
             i += 1
 
-        df_final = df[[
+        column_order = [
             "Delv Ship-To Party", "Delv Ship-To Name", "Order Quantity", "Delivery Nbr",
             "Esquema", "Coordinador LT", "Shpt Haulier Name", "Ejecutivo RBO", "Motivo",
             "Fecha de recolección", "Nombre de oportunidad1", "Fecha de cierre", "Etapa", "Agente BPO"
-        ]]
+        ]
+        df_final = df[column_order]
 
-        towrite = BytesIO()
-        df_final.to_excel(towrite, index=False)
-        towrite.seek(0)
+        output = io.BytesIO()
+        df_final.to_excel(output, index=False, engine='openpyxl')
         st.success("✅ Archivo procesado con éxito.")
-        st.download_button("📥 Descargar archivo procesado", data=towrite, file_name="Archivo_Procesado.xlsx")
+        st.download_button(
+            label="📥 Descargar archivo procesado",
+            data=output.getvalue(),
+            file_name="archivo_procesado.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        )
 
     except Exception as e:
-        st.error(f"❌ Error al procesar el archivo: {e}")
+        st.error(f"Error al procesar el archivo: {e}")
 
-st.markdown('<div class="footer">Hecho con 💚 por el equipo de BPO Innovations</div>', unsafe_allow_html=True)
+# Footer
+st.markdown("---")
+st.markdown("<center>Hecho con 💚 por el equipo de <b>BPO Innovations</b></center>", unsafe_allow_html=True)
