@@ -5,42 +5,46 @@ import unicodedata
 from datetime import datetime, timedelta
 import base64
 
-# === CONFIGURACIÓN ===
-st.set_page_config(layout="wide", page_title="Procesador de Archivos BPO", page_icon="📂")
+st.set_page_config(layout="wide", page_title="Procesador de Archivos BPO")
 
-# Imagen superior y título
+# --- Estilos personalizados ---
+st.markdown(
+    """
+    <style>
+    .main {
+        background-color: #1e1e1e;
+        color: white;
+    }
+    .css-1d391kg { 
+        color: white;
+    }
+    .block-container {
+        padding-top: 2rem;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True
+)
+
+# --- Layout principal ---
 col1, col2 = st.columns([1, 2])
+
 with col1:
     st.image("images/bpo_character.png", width=250)
+
 with col2:
-    st.image("images/bpo_innovations_logo.jpg", width=80)
-    st.markdown("### 📘 Procesador de Archivos BPO")
-    st.markdown("Sube tu archivo Excel y descarga uno limpio con fechas corregidas y agentes BPO asignados automáticamente.")
+    st.image("images/bpo_innovations_logo.jpg", width=100)
+    st.markdown("## 📂 Procesador de Archivos BPO")
+    st.write("Sube tu archivo Excel y descarga uno limpio con fechas correctas y agentes BPO asignados automáticamente.")
+    uploaded_file = st.file_uploader("📥 Sube tu archivo Excel (.xlsx)", type=["xlsx"])
+    st.write("💡 Drag and drop file here")
+    st.caption("Limite 200MB por file • XLSX")
 
-# === FUNCIONES ===
-
-def remove_accents(text):
-    if isinstance(text, str):
-        return ''.join(c for c in unicodedata.normalize('NFD', text) if unicodedata.category(c) != 'Mn')
-    return text
-
-def asignar_fecha(row, fecha_actual, fecha_siguiente):
-    if isinstance(row, str):
-        valor = row.strip().lower()
-        if valor == "ad":
-            return fecha_actual.strftime("%d/%m/%Y")
-        elif valor in ["od", "on demand", "bamx"]:
-            return fecha_siguiente.strftime("%d/%m/%Y")
-    try:
-        fecha = pd.to_datetime(row)
-        return fecha.strftime("%d/%m/%Y")
-    except:
-        return row
-
-def procesar_archivo(uploaded_file):
+if uploaded_file:
+    df = pd.read_excel(uploaded_file, sheet_name=0)
     fecha_actual = datetime.today()
     fecha_siguiente = fecha_actual + timedelta(days=1)
-    fecha_cierre = fecha_actual.strftime("%d/%m/%Y")
+    fecha_cierre = f"{fecha_actual.day}/{fecha_actual.month}/{fecha_actual.year}"
 
     meses_es = {
         1: "ene", 2: "feb", 3: "mar", 4: "abr", 5: "may", 6: "jun",
@@ -49,7 +53,23 @@ def procesar_archivo(uploaded_file):
     mes_in_spanish = meses_es[fecha_actual.month]
     fecha_oportunidad = f"{fecha_actual.day}-{mes_in_spanish}-{fecha_actual.year}"
 
-    df = pd.read_excel(uploaded_file)
+    def remove_accents(text):
+        if isinstance(text, str):
+            return ''.join(c for c in unicodedata.normalize('NFD', text) if unicodedata.category(c) != 'Mn')
+        return text
+
+    def asignar_fecha(row):
+        if isinstance(row, str):
+            valor = row.strip().lower()
+            if valor == "ad":
+                return f"{fecha_actual.day}/{fecha_actual.month}/{fecha_actual.year}"
+            elif valor in ["od", "on demand", "bamx"]:
+                return f"{fecha_siguiente.day}/{fecha_siguiente.month}/{fecha_siguiente.year}"
+        try:
+            fecha = pd.to_datetime(row)
+            return f"{fecha.day}/{fecha.month}/{fecha.year}"
+        except:
+            return row
 
     df["Esquema"] = df["Esquema"].fillna("SIN ASIGNAR").apply(lambda x: "SIN ASIGNAR" if x not in ["Dedicado", "Regular"] else x)
     df["Coordinador LT"] = df["Coordinador LT"].fillna("SIN ASIGNAR").replace("#N/A", "SIN ASIGNAR")
@@ -57,7 +77,7 @@ def procesar_archivo(uploaded_file):
     df["Ejecutivo RBO"] = df["Ejecutivo RBO"].fillna("SIN ASIGNAR").replace(["#N/A", "N/A"], "SIN ASIGNAR")
     df["Motivo"] = df["Motivo"].fillna("#N/A").apply(remove_accents).replace("N/A", "#N/A")
 
-    df["Día de recolección"] = df["Día de recolección"].apply(lambda x: asignar_fecha(x, fecha_actual, fecha_siguiente))
+    df["Día de recolección"] = df["Día de recolección"].apply(asignar_fecha)
     df.rename(columns={"Día de recolección": "Fecha de recolección"}, inplace=True)
 
     df["Nombre de oportunidad1"] = df["Delv Ship-To Name"] + " " + fecha_oportunidad
@@ -112,14 +132,10 @@ def procesar_archivo(uploaded_file):
     ]
     df_final = df[column_order]
 
-    output = df_final.to_excel(index=False)
-    return output
-
-# === INTERFAZ ===
-uploaded_file = st.file_uploader("Sube tu archivo Excel (.xlsx)", type=["xlsx"])
-if uploaded_file:
-    try:
-        output = procesar_archivo(uploaded_file)
-        st.success("✅ Archivo procesado con éxito")
-    except Exception as e:
-        st.error(f"❌ Error procesando el archivo: {e}")
+    output_filename = f"Programa_Modificado_{fecha_actual.strftime('%Y-%m-%d')}.xlsx"
+    df_final.to_excel(output_filename, index=False)
+    
+    with open(output_filename, "rb") as file:
+        b64 = base64.b64encode(file.read()).decode()
+        href = f'<a href="data:application/octet-stream;base64,{b64}" download="{output_filename}">📥 Descargar archivo procesado</a>'
+        st.markdown(href, unsafe_allow_html=True)
