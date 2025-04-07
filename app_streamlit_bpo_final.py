@@ -135,5 +135,5 @@ if uploaded_file:
 
 # Footer
 st.markdown("---")
-st.markdown("📬 ¿Necesitas ayuda? Escríbenos a [soporte@bpoinnovations.com](mailto:soporte@bpoinnovations.com)")
+st.markdown("📬 ¿Necesitas ayuda? Escríbenos a [axel.sambrano@bpoinnovations.com](mailto:soporte@bpoinnovations.com)")
 st.caption("🚀 Creado por el equipo de BPO Innovations")
