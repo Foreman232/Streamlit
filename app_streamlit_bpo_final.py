@@ -67,7 +67,7 @@ if uploaded_file:
 
         if os.path.exists("Incontactables.xlsx"):
             try:
-                df_incontactables = pd.read_excel("Incontactables.xlsx")
+                df_incontactables = pd.read_excel("Incontactables.xlsx", sheet_name=0)
                 df["Delv Ship-To Party"] = df["Delv Ship-To Party"].astype(str)
                 df_incontactables["Delv Ship-To Party"] = df_incontactables["Delv Ship-To Party"].astype(str)
                 df.loc[df["Delv Ship-To Party"].isin(df_incontactables["Delv Ship-To Party"]), "Agente BPO"] = "Incontactables"
