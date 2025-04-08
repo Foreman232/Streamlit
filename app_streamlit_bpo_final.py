@@ -65,7 +65,12 @@ if uploaded_file:
         df["Etapa"] = "Pendiente de Contacto"
         df["Agente BPO"] = ""
 
-        agentes_bpo = ["Ana Paniagua", "Alysson Garcia", "Julio de Leon", "Nancy Zet", "Melissa Florian"]
+        # Agentes base
+agentes_bpo = ["Ana Paniagua", "Alysson Garcia", "Julio de Leon", "Nancy Zet", "Melissa Florian"]
+
+# Agregar agente adicional los sábados
+if datetime.today().weekday() == 5:  # 5 = sábado
+    agentes_bpo.append("Abigail Vasquez")
         exclusivas_melissa = ["OXXO", "Axionlog"]
         df.loc[df["Nombre de oportunidad1"].str.contains('|'.join(exclusivas_melissa), case=False, na=False), "Agente BPO"] = "Melissa Florian"
 
