@@ -116,9 +116,12 @@ if uploaded_file:
 
         output_file = "Programa_Modificado.xlsx"
 
-        columnas_a_excluir = ['Segmento', 'Formato']
-        df = df.drop(columns=[col for col in columnas_a_excluir if col in df.columns])
-
+        columnas_finales = [
+            'Delv Ship-To Party', 'Delv Ship-To Name', 'Order Quantity', 'Delivery Nbr',
+            'Esquema', 'Coordinador LT', 'Shpt Haulier Name', 'Ejecutivo RBO', 'Motivo',
+            'Fecha de recolección', 'Nombre de oportunidad1', 'Fecha de cierre', 'Etapa', 'Agente BPO'
+        ]
+        df = df[[col for col in columnas_finales if col in df.columns]]
         df.to_excel(output_file, index=False)
 
         with open(output_file, "rb") as f:
