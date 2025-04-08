@@ -1,3 +1,3 @@
-# Procesador BPO App
+# Procesador BPO
 
-Aplicación para automatizar limpieza y asignación de agentes BPO.
+App de Streamlit para asignación automática de agentes BPO y limpieza de datos.
