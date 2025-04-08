@@ -20,7 +20,8 @@ with st.expander("ℹ️ ¿Qué hace esta herramienta?"):
     - Corrige campos vacíos o incorrectos.
     - Asigna automáticamente agentes BPO.
     - Detecta y etiqueta como 'Incontactables' según lista externa.
-    - Los sábados incluye a Abigail Vasquez en la distribución.
+    - Asigna a Ana Paniagua todos los registros con motivo 'Adicionales'.
+    - Agrega a Abigail Vasquez a la distribución si es sábado.
     - Descarga un archivo limpio, listo para usar.
     """)
 
@@ -78,11 +79,13 @@ if uploaded_file:
             st.info("Puedes subir manualmente 'Incontactables.xlsx' a la raíz del proyecto en Streamlit Cloud si deseas usarlo.")
 
         agentes_bpo = ["Ana Paniagua", "Alysson Garcia", "Julio de Leon", "Nancy Zet", "Melissa Florian"]
-        if fecha_actual.strftime("%A") == "Saturday":
+        if fecha_actual.weekday() == 5:  # sábado
             agentes_bpo.append("Abigail Vasquez")
 
         exclusivas_melissa = ["OXXO", "Axionlog"]
         df.loc[df["Nombre de oportunidad1"].str.contains('|'.join(exclusivas_melissa), case=False, na=False), "Agente BPO"] = "Melissa Florian"
+
+        df.loc[df["Motivo"].str.contains("adicionales", case=False, na=False), "Agente BPO"] = "Ana Paniagua"
 
         clientes_a_repartir = ["La Comer", "Fresko", "Sumesa", "City Market"]
         df_repartir = df[df["Nombre de oportunidad1"].str.contains('|'.join(clientes_a_repartir), case=False, na=False)].copy()
@@ -90,11 +93,12 @@ if uploaded_file:
         for agente in agentes_bpo:
             if agente not in asignaciones:
                 asignaciones[agente] = 0
-        indices_repartir = df_repartir.index.tolist()
+        indices_repartir = df_repartir[df_repartir["Agente BPO"] == ""].index.tolist()
         for i, idx in enumerate(indices_repartir):
             agente = agentes_bpo[i % len(agentes_bpo)]
             df.at[idx, "Agente BPO"] = agente
             asignaciones[agente] += 1
+
         df_sin_asignar = df[df["Agente BPO"] == ""].copy()
         indices_sin_asignar = df_sin_asignar.index.tolist()
         registros_por_agente = len(df) // len(agentes_bpo)
