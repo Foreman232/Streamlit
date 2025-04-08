@@ -1,16 +1,14 @@
-
 import streamlit as st
 import pandas as pd
 import unicodedata
 from datetime import datetime, timedelta
 import time
-import os
 
 st.set_page_config(layout="wide", page_title="📁 Procesador BPO", page_icon="📊")
 
 col1, col2 = st.columns([1, 5])
 with col1:
-    st.image("images/bpo_character.png", width=100)
+    st.image("bpo_character.png", width=100)
 with col2:
     st.title("📁 Procesador BPO")
     st.caption("Automatiza limpieza de datos y asignación de agentes BPO para tu archivo Excel.")
@@ -65,12 +63,15 @@ if uploaded_file:
         df["Etapa"] = "Pendiente de Contacto"
         df["Agente BPO"] = ""
 
-        # Agentes base
-agentes_bpo = ["Ana Paniagua", "Alysson Garcia", "Julio de Leon", "Nancy Zet", "Melissa Florian"]
+        try:
+            df_incontactables = pd.read_excel("Incontactables.xlsx")
+            df["Delv Ship-To Party"] = df["Delv Ship-To Party"].astype(str)
+            df_incontactables["Delv Ship-To Party"] = df_incontactables["Delv Ship-To Party"].astype(str)
+            df.loc[df["Delv Ship-To Party"].isin(df_incontactables["Delv Ship-To Party"]), "Agente BPO"] = "Incontactables"
+        except Exception as e:
+            st.warning(f"No se pudo cargar 'Incontactables.xlsx'. Error: {e}")
 
-# Agregar agente adicional los sábados
-if datetime.today().weekday() == 5:  # 5 = sábado
-    agentes_bpo.append("Abigail Vasquez")
+        agentes_bpo = ["Ana Paniagua", "Alysson Garcia", "Julio de Leon", "Nancy Zet", "Melissa Florian"]
         exclusivas_melissa = ["OXXO", "Axionlog"]
         df.loc[df["Nombre de oportunidad1"].str.contains('|'.join(exclusivas_melissa), case=False, na=False), "Agente BPO"] = "Melissa Florian"
 
@@ -99,18 +100,6 @@ if datetime.today().weekday() == 5:  # 5 = sábado
             agente = agentes_bpo[i % len(agentes_bpo)]
             df.at[idx, "Agente BPO"] = agente
             i += 1
-
-        # Asignar Incontactables al final para que no los sobreescriba
-        if os.path.exists("Incontactables.xlsx"):
-            try:
-                df_incontactables = pd.read_excel("Incontactables.xlsx", sheet_name=0)
-                df["Delv Ship-To Party"] = df["Delv Ship-To Party"].astype(str).str.strip()
-                df_incontactables["Delv Ship-To Party"] = df_incontactables["Delv Ship-To Party"].astype(str).str.strip()
-                df.loc[df["Delv Ship-To Party"].isin(df_incontactables["Delv Ship-To Party"]), "Agente BPO"] = "Incontactables"
-            except Exception as e:
-                st.warning(f"No se pudo procesar 'Incontactables.xlsx'. Error: {e}")
-        else:
-            st.info("Puedes subir manualmente 'Incontactables.xlsx' a la raíz del proyecto en Streamlit Cloud si deseas usarlo.")
 
         st.success("✅ Archivo procesado con éxito")
         st.markdown("### 👀 Vista previa")
