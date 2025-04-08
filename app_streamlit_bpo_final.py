@@ -1,4 +1,3 @@
-
 import streamlit as st
 import pandas as pd
 import unicodedata
@@ -35,6 +34,7 @@ with st.expander("ℹ️ ¿Qué hace esta herramienta?"):
     st.markdown("""
     - Corrige campos vacíos o incorrectos.
     - Asigna automáticamente agentes BPO.
+    - Detecta y etiqueta como 'Incontactables' según lista externa.
     - Descarga un archivo limpio, listo para usar.
     """)
 
@@ -79,6 +79,15 @@ if uploaded_file:
         df["Fecha de cierre"] = fecha_cierre
         df["Etapa"] = "Pendiente de Contacto"
         df["Agente BPO"] = ""
+
+        # Cargar la lista de incontactables
+        try:
+            df_incontactables = pd.read_excel("Incontactables.xlsx")
+            df["Delv Ship-To Party"] = df["Delv Ship-To Party"].astype(str)
+            df_incontactables["Delv Ship-To Party"] = df_incontactables["Delv Ship-To Party"].astype(str)
+            df.loc[df["Delv Ship-To Party"].isin(df_incontactables["Delv Ship-To Party"]), "Agente BPO"] = "Incontactables"
+        except Exception as e:
+            st.warning(f"No se pudo cargar 'Incontactables.xlsx'. Error: {e}")
 
         agentes_bpo = ["Ana Paniagua", "Alysson Garcia", "Julio de Leon", "Nancy Zet", "Melissa Florian"]
         exclusivas_melissa = ["OXXO", "Axionlog"]
