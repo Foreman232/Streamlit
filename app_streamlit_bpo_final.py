@@ -87,32 +87,51 @@ if uploaded_file:
 
         df.loc[df["Motivo"].str.contains("adicionales", case=False, na=False), "Agente BPO"] = "Ana Paniagua"
 
-        clientes_a_repartir = ["La Comer", "Fresko", "Sumesa", "City Market"]
-        df_repartir = df[df["Nombre de oportunidad1"].str.contains('|'.join(clientes_a_repartir), case=False, na=False)].copy()
-        asignaciones = df["Agente BPO"].value_counts().to_dict()
-        for agente in agentes_bpo:
-            if agente not in asignaciones:
-                asignaciones[agente] = 0
-        indices_repartir = df_repartir[df_repartir["Agente BPO"] == ""].index.tolist()
-        for i, idx in enumerate(indices_repartir):
-            agente = agentes_bpo[i % len(agentes_bpo)]
-            df.at[idx, "Agente BPO"] = agente
-            asignaciones[agente] += 1
+        # Distribución personalizada después de asignar "Agente Incontactable"
+total_registros = len(df)
+incontactables = df[df["Agente BPO"] == "Agente Incontactable"]
+total_incontactables = len(incontactables)
+total_para_repartir = total_registros - total_incontactables
 
-        df_sin_asignar = df[df["Agente BPO"] == ""].copy()
-        indices_sin_asignar = df_sin_asignar.index.tolist()
-        registros_por_agente = len(df) // len(agentes_bpo)
-        faltantes = {agente: max(0, registros_por_agente - asignaciones[agente]) for agente in agentes_bpo}
-        for agente in agentes_bpo:
-            for _ in range(faltantes[agente]):
-                if indices_sin_asignar:
-                    df.at[indices_sin_asignar.pop(0), "Agente BPO"] = agente
-        i = 0
-        while indices_sin_asignar:
+# Lista base de agentes
+agentes_base = ["Ana Paniagua", "Alysson Garcia", "Julio de Leon", "Nancy Zet", "Melissa Florian"]
+if fecha_actual.weekday() == 5:  # sábado
+    agentes_base.append("Abigail Vasquez")
+
+# Aplicar 25% menos a Melissa
+if "Melissa Florian" in agentes_base:
+    n_agentes = len(agentes_base)
+    peso_normal = 1
+    peso_melissa = 0.75
+    pesos = {agente: peso_normal for agente in agentes_base}
+    pesos["Melissa Florian"] = peso_melissa
+
+    suma_pesos = sum(pesos.values())
+    asignaciones_personalizadas = {agente: int((peso / suma_pesos) * total_para_repartir) for agente, peso in pesos.items()}
+else:
+    n_agentes = len(agentes_base)
+    asignaciones_personalizadas = {agente: total_para_repartir // n_agentes for agente in agentes_base}
+
+# Rellenar distribución en el dataframe
+df.loc[df["Agente BPO"] != "Agente Incontactable", "Agente BPO"] = ""  # Reinicia BPO asignados
+
+sin_asignar = df[df["Agente BPO"] == ""].copy()
+indices_sin_asignar = sin_asignar.index.tolist()
+
+for agente in agentes_base:
+    cantidad = asignaciones_personalizadas[agente]
+    for _ in range(cantidad):
+        if indices_sin_asignar:
             idx = indices_sin_asignar.pop(0)
-            agente = agentes_bpo[i % len(agentes_bpo)]
             df.at[idx, "Agente BPO"] = agente
-            i += 1
+
+# Si quedaron sin asignar por redondeo, asignamos en orden cíclico
+i = 0
+while indices_sin_asignar:
+    agente = agentes_base[i % len(agentes_base)]
+    idx = indices_sin_asignar.pop(0)
+    df.at[idx, "Agente BPO"] = agente
+    i += 1
 
         st.success("✅ Archivo procesado con éxito")
         st.markdown("### 👀 Vista previa")
