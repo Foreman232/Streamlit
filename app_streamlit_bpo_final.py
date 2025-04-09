@@ -72,7 +72,7 @@ if uploaded_file:
                 df_incontactables = pd.read_excel("Incontactables.xlsx", sheet_name=0)
                 df["Delv Ship-To Party"] = df["Delv Ship-To Party"].astype(str)
                 df_incontactables["Delv Ship-To Party"] = df_incontactables["Delv Ship-To Party"].astype(str)
-                df.loc[df["Delv Ship-To Party"].isin(df_incontactables["Delv Ship-To Party"]), "Agente BPO"] = "Agente Incontactables"
+                df.loc[df["Delv Ship-To Party"].isin(df_incontactables["Delv Ship-To Party"]), "Agente BPO"] = "Agente Incontactable"
             except Exception as e:
                 st.warning(f"No se pudo procesar 'Incontactables.xlsx'. Error: {e}")
         else:
