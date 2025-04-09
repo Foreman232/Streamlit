@@ -1,5 +1,5 @@
 
-iimport streamlit as st
+import streamlit as st
 import pandas as pd
 import unicodedata
 from datetime import datetime, timedelta
