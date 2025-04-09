@@ -6,14 +6,14 @@ import time
 import os
 
 # Configuración de la página
-st.set_page_config(layout="wide", page_title="📁 Procesador BPO", page_icon="📊")
+st.set_page_config(layout="wide", page_title="🚀 Procesador de Data Chep", page_icon="📊")
 
 # Cabecera con imagen y títulos
 col1, col2 = st.columns([1, 5])
 with col1:
     st.image("images/bpo_character.png", width=100)
 with col2:
-    st.title("📁 Procesador BPO")
+    st.title("🚀 Procesador de Datos")
     st.caption("Automatiza limpieza de datos y asignación de agentes BPO para tu archivo Excel.")
 
 with st.expander("ℹ️ ¿Qué hace esta herramienta?"):
