@@ -4,37 +4,24 @@ import pandas as pd
 import unicodedata
 from datetime import datetime, timedelta
 import time
+import os
 
 st.set_page_config(layout="wide", page_title="📁 Procesador BPO", page_icon="📊")
 
-st.markdown("""
-    <style>
-    body { background-color: #1E1E1E; color: white; }
-    .block-container { padding: 2rem; max-width: 95%; margin: auto; }
-    .stButton>button {
-        background-color: #0099ff;
-        color: white;
-        padding: 0.5em 2em;
-        border-radius: 8px;
-        border: none;
-        font-weight: bold;
-    }
-    </style>
-""", unsafe_allow_html=True)
-
 col1, col2 = st.columns([1, 5])
 with col1:
-    st.image("images/bpo_logo.png", width=100)
+    st.image("images/bpo_character.png", width=100)
 with col2:
     st.title("📁 Procesador BPO")
     st.caption("Automatiza limpieza de datos y asignación de agentes BPO para tu archivo Excel.")
-
-st.image("images/bpo_character.png", width=200)
 
 with st.expander("ℹ️ ¿Qué hace esta herramienta?"):
     st.markdown("""
     - Corrige campos vacíos o incorrectos.
     - Asigna automáticamente agentes BPO.
+    - Detecta y etiqueta como 'Incontactables' según lista externa.
+    - Asigna a Ana Paniagua todos los registros con motivo 'Adicionales'.
+    - Agrega a Abigail Vasquez a la distribución si es sábado.
     - Descarga un archivo limpio, listo para usar.
     """)
 
@@ -80,9 +67,25 @@ if uploaded_file:
         df["Etapa"] = "Pendiente de Contacto"
         df["Agente BPO"] = ""
 
+        if os.path.exists("Incontactables.xlsx"):
+            try:
+                df_incontactables = pd.read_excel("Incontactables.xlsx", sheet_name=0)
+                df["Delv Ship-To Party"] = df["Delv Ship-To Party"].astype(str)
+                df_incontactables["Delv Ship-To Party"] = df_incontactables["Delv Ship-To Party"].astype(str)
+                df.loc[df["Delv Ship-To Party"].isin(df_incontactables["Delv Ship-To Party"]), "Agente BPO"] = "Incontactables"
+            except Exception as e:
+                st.warning(f"No se pudo procesar 'Incontactables.xlsx'. Error: {e}")
+        else:
+            st.info("Puedes subir manualmente 'Incontactables.xlsx' a la raíz del proyecto en Streamlit Cloud si deseas usarlo.")
+
         agentes_bpo = ["Ana Paniagua", "Alysson Garcia", "Julio de Leon", "Nancy Zet", "Melissa Florian"]
+        if fecha_actual.weekday() == 5:  # sábado
+            agentes_bpo.append("Abigail Vasquez")
+
         exclusivas_melissa = ["OXXO", "Axionlog"]
         df.loc[df["Nombre de oportunidad1"].str.contains('|'.join(exclusivas_melissa), case=False, na=False), "Agente BPO"] = "Melissa Florian"
+
+        df.loc[df["Motivo"].str.contains("adicionales", case=False, na=False), "Agente BPO"] = "Ana Paniagua"
 
         clientes_a_repartir = ["La Comer", "Fresko", "Sumesa", "City Market"]
         df_repartir = df[df["Nombre de oportunidad1"].str.contains('|'.join(clientes_a_repartir), case=False, na=False)].copy()
@@ -90,11 +93,12 @@ if uploaded_file:
         for agente in agentes_bpo:
             if agente not in asignaciones:
                 asignaciones[agente] = 0
-        indices_repartir = df_repartir.index.tolist()
+        indices_repartir = df_repartir[df_repartir["Agente BPO"] == ""].index.tolist()
         for i, idx in enumerate(indices_repartir):
             agente = agentes_bpo[i % len(agentes_bpo)]
             df.at[idx, "Agente BPO"] = agente
             asignaciones[agente] += 1
+
         df_sin_asignar = df[df["Agente BPO"] == ""].copy()
         indices_sin_asignar = df_sin_asignar.index.tolist()
         registros_por_agente = len(df) // len(agentes_bpo)
@@ -115,7 +119,6 @@ if uploaded_file:
         st.dataframe(df.head(15), use_container_width=True)
 
         output_file = "Programa_Modificado.xlsx"
-
         columnas_finales = [
             'Delv Ship-To Party', 'Delv Ship-To Name', 'Order Quantity', 'Delivery Nbr',
             'Esquema', 'Coordinador LT', 'Shpt Haulier Name', 'Ejecutivo RBO', 'Motivo',
@@ -133,5 +136,4 @@ if uploaded_file:
             )
 
 st.markdown("---")
-st.markdown("📬 ¿Necesitas ayuda? Escríbenos a [axel.sambrano@bpoinnovations.com](mailto:soporte@bpoinnovations.com)")
 st.caption("🚀 Creado por el equipo de BPO Innovations")
