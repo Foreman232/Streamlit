@@ -133,7 +133,7 @@ while indices_sin_asignar:
     df.at[idx, "Agente BPO"] = agente
     i += 1
 
-        st.success("✅ Archivo procesado con éxito")
+st.success("✅ Archivo procesado con éxito")
         st.markdown("### 👀 Vista previa")
         st.dataframe(df.head(15), height=500, use_container_width=True)
 
