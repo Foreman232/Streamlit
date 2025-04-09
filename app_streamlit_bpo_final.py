@@ -116,7 +116,7 @@ if uploaded_file:
 
         st.success("✅ Archivo procesado con éxito")
         st.markdown("### 👀 Vista previa")
-        st.dataframe(df.head(15), use_container_width=True)
+        st.dataframe(df.head(15), height=500, use_container_width=True)
 
         output_file = "Programa_Modificado.xlsx"
         columnas_finales = [
