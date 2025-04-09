@@ -16,6 +16,7 @@ with col2:
     st.title("📁 Procesador BPO")
     st.caption("Automatiza limpieza de datos y asignación de agentes BPO para tu archivo Excel.")
 
+# Información detallada en un expander
 with st.expander("ℹ️ ¿Qué hace esta herramienta?"):
     st.markdown("""
     - Corrige campos vacíos o incorrectos.
@@ -38,10 +39,14 @@ fecha_cierre = fecha_actual.strftime("%d/%m/%Y")
 # Funciones de utilidad
 def remove_accents(text):
     if isinstance(text, str):
-        return ''.join(c for c in unicodedata.normalize('NFD', text) if unicodedata.category(c) != 'Mn')
+        return ''.join(
+            c for c in unicodedata.normalize('NFD', text) 
+            if unicodedata.category(c) != 'Mn'
+        )
     return text
 
 def asignar_fecha(row):
+    """Asigna fecha según el valor indicado en la columna original."""
     if isinstance(row, str):
         valor = row.strip().lower()
         if valor == "ad":
@@ -54,12 +59,16 @@ def asignar_fecha(row):
     except:
         return row
 
-# Solo se procesa si se sube un archivo
+# Procesamiento principal si se sube un archivo
 if uploaded_file:
     with st.spinner("⏳ Procesando archivo..."):
         time.sleep(1)
         df = pd.read_excel(uploaded_file)
-        df["Esquema"] = df["Esquema"].fillna("SIN ASIGNAR").apply(lambda x: "SIN ASIGNAR" if x not in ["Dedicado", "Regular"] else x)
+        
+        # Limpieza y ajustes iniciales
+        df["Esquema"] = df["Esquema"].fillna("SIN ASIGNAR").apply(
+            lambda x: "SIN ASIGNAR" if x not in ["Dedicado", "Regular"] else x
+        )
         df["Coordinador LT"] = df["Coordinador LT"].fillna("SIN ASIGNAR").replace("#N/A", "SIN ASIGNAR")
         df["Shpt Haulier Name"] = df["Shpt Haulier Name"].fillna("Sin Asignar").apply(remove_accents)
         df["Ejecutivo RBO"] = df["Ejecutivo RBO"].fillna("SIN ASIGNAR").replace(["#N/A", "N/A"], "SIN ASIGNAR")
@@ -78,7 +87,10 @@ if uploaded_file:
                 df_incontactables = pd.read_excel("Incontactables.xlsx", sheet_name=0)
                 df["Delv Ship-To Party"] = df["Delv Ship-To Party"].astype(str)
                 df_incontactables["Delv Ship-To Party"] = df_incontactables["Delv Ship-To Party"].astype(str)
-                df.loc[df["Delv Ship-To Party"].isin(df_incontactables["Delv Ship-To Party"]), "Agente BPO"] = "Agente Incontactable"
+                df.loc[
+                    df["Delv Ship-To Party"].isin(df_incontactables["Delv Ship-To Party"]), 
+                    "Agente BPO"
+                ] = "Agente Incontactable"
             except Exception as e:
                 st.warning(f"No se pudo procesar 'Incontactables.xlsx'. Error: {e}")
         else:
@@ -86,21 +98,31 @@ if uploaded_file:
 
         # Definir la lista de agentes BPO
         agentes_bpo = ["Ana Paniagua", "Alysson Garcia", "Julio de Leon", "Nancy Zet", "Melissa Florian"]
-        if fecha_actual.weekday() == 5:  # sábado
+        # Si es sábado, agregar a Abigail Vasquez
+        if fecha_actual.weekday() == 5:  # 5 = sábado
             agentes_bpo.append("Abigail Vasquez")
 
-        # Aplicar reglas especiales de asignación
+        # Asignaciones por reglas especiales
         exclusivas_melissa = ["OXXO", "Axionlog"]
-        df.loc[df["Nombre de oportunidad1"].str.contains('|'.join(exclusivas_melissa), case=False, na=False), "Agente BPO"] = "Melissa Florian"
-        df.loc[df["Motivo"].str.contains("adicionales", case=False, na=False), "Agente BPO"] = "Ana Paniagua"
+        df.loc[
+            df["Nombre de oportunidad1"].str.contains('|'.join(exclusivas_melissa), case=False, na=False), 
+            "Agente BPO"
+        ] = "Melissa Florian"
 
-        # Repartir registros según clientes específicos
+        df.loc[
+            df["Motivo"].str.contains("adicionales", case=False, na=False), 
+            "Agente BPO"
+        ] = "Ana Paniagua"
+
+        # Repartir registros de clientes específicos
         clientes_a_repartir = ["La Comer", "Fresko", "Sumesa", "City Market"]
         df_repartir = df[df["Nombre de oportunidad1"].str.contains('|'.join(clientes_a_repartir), case=False, na=False)].copy()
+        
         asignaciones = df["Agente BPO"].value_counts().to_dict()
         for agente in agentes_bpo:
             if agente not in asignaciones:
                 asignaciones[agente] = 0
+        
         indices_repartir = df_repartir[df_repartir["Agente BPO"] == ""].index.tolist()
         for i, idx in enumerate(indices_repartir):
             agente = agentes_bpo[i % len(agentes_bpo)]
@@ -111,11 +133,16 @@ if uploaded_file:
         df_sin_asignar = df[df["Agente BPO"] == ""].copy()
         indices_sin_asignar = df_sin_asignar.index.tolist()
         registros_por_agente = len(df) // len(agentes_bpo)
-        faltantes = {agente: max(0, registros_por_agente - asignaciones[agente]) for agente in agentes_bpo}
+        
+        faltantes = {
+            agente: max(0, registros_por_agente - asignaciones[agente]) 
+            for agente in agentes_bpo
+        }
         for agente in agentes_bpo:
             for _ in range(faltantes[agente]):
                 if indices_sin_asignar:
                     df.at[indices_sin_asignar.pop(0), "Agente BPO"] = agente
+
         i = 0
         while indices_sin_asignar:
             idx = indices_sin_asignar.pop(0)
@@ -126,14 +153,15 @@ if uploaded_file:
         # ---------------------------
         # Bloque para calcular la distribución final y mostrarla
         total_general = df.shape[0]
+        # Cuenta los registros "Incontactables"
         incontactables = df[df["Agente BPO"] == "Agente Incontactable"].shape[0]
         resto = total_general - incontactables
 
-        # Se consideran los agentes BPO de la lista original y se asume que Melissa Florian recibe un 25% menos.
+        # Se asume que Melissa Florian recibe un 25% menos
         agentes_repartir = [ag for ag in agentes_bpo if ag != "Agente Incontactable"]
-        n_agentes = len(agentes_repartir)  # En este ejemplo, son 5
+        n_agentes = len(agentes_repartir)  # Normalmente 5
 
-        # La distribución se calcula como: 4*x + 0.75*x = (n_agentes - 0.25)*x = resto
+        # 4*x + 0.75*x = (n_agentes - 0.25)*x = resto
         x = resto / (n_agentes - 0.25)
 
         distribucion = {}
@@ -181,19 +209,34 @@ if uploaded_file:
         # ---------------------------
 
         st.success("✅ Archivo procesado con éxito")
-        st.markdown("### 👀 Vista previa de los primeros registros")
-        st.dataframe(df.head(15), height=500, use_container_width=True)
 
-        # Generar el archivo de salida
-        output_file = "Programa_Modificado.xlsx"
+        # ---------------------------
+        # Mostrar solo las 14 columnas finales en la vista previa
         columnas_finales = [
             'Delv Ship-To Party', 'Delv Ship-To Name', 'Order Quantity', 'Delivery Nbr',
             'Esquema', 'Coordinador LT', 'Shpt Haulier Name', 'Ejecutivo RBO', 'Motivo',
             'Fecha de recolección', 'Nombre de oportunidad1', 'Fecha de cierre', 'Etapa', 'Agente BPO'
         ]
-        df = df[[col for col in columnas_finales if col in df.columns]]
-        df.to_excel(output_file, index=False)
+        
+        # Creamos un df final solo con esas columnas
+        df_final = df[[col for col in columnas_finales if col in df.columns]]
 
+        # Le agregamos un estilo sencillo (color de fondo y fuente)
+        # Nota: El estilo se aplica en la renderización, no modifica el excel
+        df_final_style = df_final.style.set_properties(**{
+            "font-family": "Arial, sans-serif",
+            "font-size": "12px",
+            "background-color": "#ffffff",
+            "color": "#333333"
+        })
+
+        st.markdown("### 👀 Vista previa de los primeros registros (14 columnas finales)")
+        st.dataframe(df_final_style.head(15), height=500, use_container_width=True)
+        # ---------------------------
+
+        # Descarga del mismo df_final
+        output_file = "Programa_Modificado.xlsx"
+        df_final.to_excel(output_file, index=False)
         with open(output_file, "rb") as f:
             st.download_button(
                 label="📥 Descargar Programa_Modificado.xlsx",
@@ -204,4 +247,3 @@ if uploaded_file:
 
 st.markdown("---")
 st.caption("🚀 Creado por el equipo de BPO Innovations")
-
