@@ -1,5 +1,5 @@
 
-import streamlit as st
+iimport streamlit as st
 import pandas as pd
 import unicodedata
 from datetime import datetime, timedelta
@@ -78,15 +78,17 @@ if uploaded_file:
         else:
             st.info("Puedes subir manualmente 'Incontactables.xlsx' a la raíz del proyecto en Streamlit Cloud si deseas usarlo.")
 
+        # Lista de agentes BPO
         agentes_bpo = ["Ana Paniagua", "Alysson Garcia", "Julio de Leon", "Nancy Zet", "Melissa Florian"]
         if fecha_actual.weekday() == 5:  # sábado
             agentes_bpo.append("Abigail Vasquez")
 
+        # Asignaciones por reglas especiales
         exclusivas_melissa = ["OXXO", "Axionlog"]
         df.loc[df["Nombre de oportunidad1"].str.contains('|'.join(exclusivas_melissa), case=False, na=False), "Agente BPO"] = "Melissa Florian"
-
         df.loc[df["Motivo"].str.contains("adicionales", case=False, na=False), "Agente BPO"] = "Ana Paniagua"
 
+        # Repartición según clientes específicos
         clientes_a_repartir = ["La Comer", "Fresko", "Sumesa", "City Market"]
         df_repartir = df[df["Nombre de oportunidad1"].str.contains('|'.join(clientes_a_repartir), case=False, na=False)].copy()
         asignaciones = df["Agente BPO"].value_counts().to_dict()
@@ -99,6 +101,7 @@ if uploaded_file:
             df.at[idx, "Agente BPO"] = agente
             asignaciones[agente] += 1
 
+        # Asignar los que aún están vacíos
         df_sin_asignar = df[df["Agente BPO"] == ""].copy()
         indices_sin_asignar = df_sin_asignar.index.tolist()
         registros_por_agente = len(df) // len(agentes_bpo)
@@ -113,6 +116,34 @@ if uploaded_file:
             agente = agentes_bpo[i % len(agentes_bpo)]
             df.at[idx, "Agente BPO"] = agente
             i += 1
+
+        # ---------------------------
+        # Bloque para calcular la distribución final y mostrarla
+        total_general = df.shape[0]
+        # Se cuentan los registros asignados como "Agente Incontactable"
+        incontactables = df[df["Agente BPO"] == "Agente Incontactable"].shape[0]
+        resto = total_general - incontactables
+
+        # Se consideran los agentes BPO de la lista original
+        # Se asume que Melissa Florian recibe un 25% menos
+        agentes_repartir = [ag for ag in agentes_bpo if ag != "Agente Incontactable"]
+        n_agentes = len(agentes_repartir)  # En este ejemplo, son 5
+
+        # La suma para repartir es: 4*x (para los 4 agentes) + 0.75*x (para Melissa) = (n_agentes - 0.25)*x
+        x = resto / (n_agentes - 0.25)
+
+        distribucion = {}
+        for agente in agentes_repartir:
+            if agente == "Melissa Florian":
+                distribucion[agente] = int(0.75 * x)
+            else:
+                distribucion[agente] = int(x)
+        distribucion["Agente Incontactable"] = incontactables
+
+        st.markdown("### 📊 Resumen de distribución final")
+        for agente, monto in distribucion.items():
+            st.write(f"**{agente}:** {monto}")
+        # ---------------------------
 
         st.success("✅ Archivo procesado con éxito")
         st.markdown("### 👀 Vista previa")
@@ -137,3 +168,4 @@ if uploaded_file:
 
 st.markdown("---")
 st.caption("🚀 Creado por el equipo de BPO Innovations")
+
