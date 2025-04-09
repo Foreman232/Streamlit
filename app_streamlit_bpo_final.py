@@ -1,4 +1,3 @@
-
 import streamlit as st
 import pandas as pd
 import unicodedata
@@ -6,8 +5,10 @@ from datetime import datetime, timedelta
 import time
 import os
 
+# Configuración de la página
 st.set_page_config(layout="wide", page_title="📁 Procesador BPO", page_icon="📊")
 
+# Cabecera con imagen y títulos
 col1, col2 = st.columns([1, 5])
 with col1:
     st.image("images/bpo_character.png", width=100)
@@ -25,13 +26,16 @@ with st.expander("ℹ️ ¿Qué hace esta herramienta?"):
     - Descarga un archivo limpio, listo para usar.
     """)
 
+# Selector de archivo
 uploaded_file = st.file_uploader("📤 Sube tu archivo Excel para procesar", type=["xlsx"])
 
+# Fechas
 fecha_actual = datetime.today()
 fecha_siguiente = fecha_actual + timedelta(days=1)
 fecha_oportunidad = f"{fecha_actual.day}-{fecha_actual.strftime('%b').lower()}-{fecha_actual.year}"
 fecha_cierre = fecha_actual.strftime("%d/%m/%Y")
 
+# Funciones de utilidad
 def remove_accents(text):
     if isinstance(text, str):
         return ''.join(c for c in unicodedata.normalize('NFD', text) if unicodedata.category(c) != 'Mn')
@@ -50,6 +54,7 @@ def asignar_fecha(row):
     except:
         return row
 
+# Solo se procesa si se sube un archivo
 if uploaded_file:
     with st.spinner("⏳ Procesando archivo..."):
         time.sleep(1)
@@ -67,6 +72,7 @@ if uploaded_file:
         df["Etapa"] = "Pendiente de Contacto"
         df["Agente BPO"] = ""
 
+        # Procesa Incontactables
         if os.path.exists("Incontactables.xlsx"):
             try:
                 df_incontactables = pd.read_excel("Incontactables.xlsx", sheet_name=0)
@@ -78,17 +84,17 @@ if uploaded_file:
         else:
             st.info("Puedes subir manualmente 'Incontactables.xlsx' a la raíz del proyecto en Streamlit Cloud si deseas usarlo.")
 
-        # Lista de agentes BPO
+        # Definir la lista de agentes BPO
         agentes_bpo = ["Ana Paniagua", "Alysson Garcia", "Julio de Leon", "Nancy Zet", "Melissa Florian"]
         if fecha_actual.weekday() == 5:  # sábado
             agentes_bpo.append("Abigail Vasquez")
 
-        # Asignaciones por reglas especiales
+        # Aplicar reglas especiales de asignación
         exclusivas_melissa = ["OXXO", "Axionlog"]
         df.loc[df["Nombre de oportunidad1"].str.contains('|'.join(exclusivas_melissa), case=False, na=False), "Agente BPO"] = "Melissa Florian"
         df.loc[df["Motivo"].str.contains("adicionales", case=False, na=False), "Agente BPO"] = "Ana Paniagua"
 
-        # Repartición según clientes específicos
+        # Repartir registros según clientes específicos
         clientes_a_repartir = ["La Comer", "Fresko", "Sumesa", "City Market"]
         df_repartir = df[df["Nombre de oportunidad1"].str.contains('|'.join(clientes_a_repartir), case=False, na=False)].copy()
         asignaciones = df["Agente BPO"].value_counts().to_dict()
@@ -101,7 +107,7 @@ if uploaded_file:
             df.at[idx, "Agente BPO"] = agente
             asignaciones[agente] += 1
 
-        # Asignar los que aún están vacíos
+        # Asignar aquellos que aún están sin agente
         df_sin_asignar = df[df["Agente BPO"] == ""].copy()
         indices_sin_asignar = df_sin_asignar.index.tolist()
         registros_por_agente = len(df) // len(agentes_bpo)
@@ -120,16 +126,14 @@ if uploaded_file:
         # ---------------------------
         # Bloque para calcular la distribución final y mostrarla
         total_general = df.shape[0]
-        # Se cuentan los registros asignados como "Agente Incontactable"
         incontactables = df[df["Agente BPO"] == "Agente Incontactable"].shape[0]
         resto = total_general - incontactables
 
-        # Se consideran los agentes BPO de la lista original
-        # Se asume que Melissa Florian recibe un 25% menos
+        # Se consideran los agentes BPO de la lista original y se asume que Melissa Florian recibe un 25% menos.
         agentes_repartir = [ag for ag in agentes_bpo if ag != "Agente Incontactable"]
         n_agentes = len(agentes_repartir)  # En este ejemplo, son 5
 
-        # La suma para repartir es: 4*x (para los 4 agentes) + 0.75*x (para Melissa) = (n_agentes - 0.25)*x
+        # La distribución se calcula como: 4*x + 0.75*x = (n_agentes - 0.25)*x = resto
         x = resto / (n_agentes - 0.25)
 
         distribucion = {}
@@ -140,15 +144,47 @@ if uploaded_file:
                 distribucion[agente] = int(x)
         distribucion["Agente Incontactable"] = incontactables
 
-        st.markdown("### 📊 Resumen de distribución final")
+        # Estilos CSS para el resumen de distribución
+        st.markdown(
+            """
+            <style>
+            .resumen-container {
+                background: #f7f9fc;
+                padding: 20px;
+                border-radius: 8px;
+                margin-top: 20px;
+                box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+                max-width: 600px;
+            }
+            .resumen-title {
+                font-size: 1.25rem;
+                font-weight: bold;
+                color: #333;
+                margin-bottom: 10px;
+            }
+            .resumen-item {
+                font-size: 1rem;
+                margin: 5px 0;
+                color: #555;
+            }
+            </style>
+            """, unsafe_allow_html=True
+        )
+        
+        # Mostrar resumen de forma estética
+        resumen_html = "<div class='resumen-container'>"
+        resumen_html += "<div class='resumen-title'>📊 Resumen de Distribución Final</div>"
         for agente, monto in distribucion.items():
-            st.write(f"**{agente}:** {monto}")
+            resumen_html += f"<div class='resumen-item'><strong>{agente}:</strong> {monto}</div>"
+        resumen_html += "</div>"
+        st.markdown(resumen_html, unsafe_allow_html=True)
         # ---------------------------
 
         st.success("✅ Archivo procesado con éxito")
-        st.markdown("### 👀 Vista previa")
+        st.markdown("### 👀 Vista previa de los primeros registros")
         st.dataframe(df.head(15), height=500, use_container_width=True)
 
+        # Generar el archivo de salida
         output_file = "Programa_Modificado.xlsx"
         columnas_finales = [
             'Delv Ship-To Party', 'Delv Ship-To Name', 'Order Quantity', 'Delivery Nbr',
