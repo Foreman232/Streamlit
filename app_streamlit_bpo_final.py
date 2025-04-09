@@ -11,12 +11,12 @@ st.set_page_config(layout="wide", page_title="📁 Procesador BPO", page_icon="�
 col1, col2 = st.columns([1, 5])
 with col1:
     st.image("images/bpo_character.png", width=100)
-with col2:
+    with col2:
     st.title("📁 Procesador BPO")
     st.caption("Automatiza limpieza de datos y asignación de agentes BPO para tu archivo Excel.")
 
 with st.expander("ℹ️ ¿Qué hace esta herramienta?"):
-    st.markdown("""
+st.markdown("""
     - Corrige campos vacíos o incorrectos.
     - Asigna automáticamente agentes BPO.
     - Detecta y etiqueta como 'Incontactables' según lista externa.
@@ -33,14 +33,14 @@ fecha_oportunidad = f"{fecha_actual.day}-{fecha_actual.strftime('%b').lower()}-{
 fecha_cierre = fecha_actual.strftime("%d/%m/%Y")
 
 def remove_accents(text):
-    if isinstance(text, str):
+if isinstance(text, str):
         return ''.join(c for c in unicodedata.normalize('NFD', text) if unicodedata.category(c) != 'Mn')
     return text
 
 def asignar_fecha(row):
-    if isinstance(row, str):
+if isinstance(row, str):
         valor = row.strip().lower()
-        if valor == "ad":
+    if valor == "ad":
             return fecha_actual.strftime("%d/%m/%Y")
         elif valor in ["od", "on demand", "bamx"]:
             return fecha_siguiente.strftime("%d/%m/%Y")
@@ -51,7 +51,7 @@ def asignar_fecha(row):
         return row
 
 if uploaded_file:
-    with st.spinner("⏳ Procesando archivo..."):
+with st.spinner("⏳ Procesando archivo..."):
         time.sleep(1)
         df = pd.read_excel(uploaded_file)
         df["Esquema"] = df["Esquema"].fillna("SIN ASIGNAR").apply(lambda x: "SIN ASIGNAR" if x not in ["Dedicado", "Regular"] else x)
@@ -67,7 +67,7 @@ if uploaded_file:
         df["Etapa"] = "Pendiente de Contacto"
         df["Agente BPO"] = ""
 
-        if os.path.exists("Incontactables.xlsx"):
+if os.path.exists("Incontactables.xlsx"):
             try:
                 df_incontactables = pd.read_excel("Incontactables.xlsx", sheet_name=0)
                 df["Delv Ship-To Party"] = df["Delv Ship-To Party"].astype(str)
@@ -75,11 +75,11 @@ if uploaded_file:
                 df.loc[df["Delv Ship-To Party"].isin(df_incontactables["Delv Ship-To Party"]), "Agente BPO"] = "Agente Incontactable"
             except Exception as e:
                 st.warning(f"No se pudo procesar 'Incontactables.xlsx'. Error: {e}")
-        else:
+    else:
             st.info("Puedes subir manualmente 'Incontactables.xlsx' a la raíz del proyecto en Streamlit Cloud si deseas usarlo.")
 
         agentes_bpo = ["Ana Paniagua", "Alysson Garcia", "Julio de Leon", "Nancy Zet", "Melissa Florian"]
-        if fecha_actual.weekday() == 5:  # sábado
+    if fecha_actual.weekday() == 5:  # sábado
             agentes_bpo.append("Abigail Vasquez")
 
         exclusivas_melissa = ["OXXO", "Axionlog"]
@@ -108,7 +108,7 @@ if "Melissa Florian" in agentes_base:
 
     suma_pesos = sum(pesos.values())
     asignaciones_personalizadas = {agente: int((peso / suma_pesos) * total_para_repartir) for agente, peso in pesos.items()}
-else:
+    else:
     n_agentes = len(agentes_base)
     asignaciones_personalizadas = {agente: total_para_repartir // n_agentes for agente in agentes_base}
 
@@ -121,7 +121,7 @@ indices_sin_asignar = sin_asignar.index.tolist()
 for agente in agentes_base:
     cantidad = asignaciones_personalizadas[agente]
     for _ in range(cantidad):
-        if indices_sin_asignar:
+    if indices_sin_asignar:
             idx = indices_sin_asignar.pop(0)
             df.at[idx, "Agente BPO"] = agente
 
@@ -134,8 +134,8 @@ while indices_sin_asignar:
     i += 1
 
 st.success("✅ Archivo procesado con éxito")
-        st.markdown("### 👀 Vista previa")
-        st.dataframe(df.head(15), height=500, use_container_width=True)
+st.markdown("### 👀 Vista previa")
+st.dataframe(df.head(15), height=500, use_container_width=True)
 
         output_file = "Programa_Modificado.xlsx"
         columnas_finales = [
@@ -146,8 +146,8 @@ st.success("✅ Archivo procesado con éxito")
         df = df[[col for col in columnas_finales if col in df.columns]]
         df.to_excel(output_file, index=False)
 
-        with open(output_file, "rb") as f:
-            st.download_button(
+with open(output_file, "rb") as f:
+st.download_button(
                 label="📥 Descargar Programa_Modificado.xlsx",
                 data=f,
                 file_name=output_file,
