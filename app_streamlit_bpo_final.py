@@ -97,7 +97,7 @@ if uploaded_file:
         agentes_bpo = ["Ana Paniagua", "Alysson Garcia", "Julio de Leon", "Nancy Zet", "Melissa Florian"]
         if fecha_actual.weekday() == 5:  # sábado
             agentes_bpo.append("Abigail Vasquez")
-
+        
         # Reglas especiales de asignación
         exclusivas_melissa = ["OXXO", "Axionlog"]
         df.loc[
@@ -113,6 +113,7 @@ if uploaded_file:
         clientes_a_repartir = ["La Comer", "Fresko", "Sumesa", "City Market"]
         df_repartir = df[df["Nombre de oportunidad1"].str.contains('|'.join(clientes_a_repartir), case=False, na=False)].copy()
         asignaciones = df["Agente BPO"].value_counts().to_dict()
+        # Inicializar conteo para cada agente si no hay aún asignaciones
         for agente in agentes_bpo:
             if agente not in asignaciones:
                 asignaciones[agente] = 0
@@ -122,18 +123,9 @@ if uploaded_file:
             df.at[idx, "Agente BPO"] = agente
             asignaciones[agente] += 1
 
-        # Asignar los que aún están sin agente
+        # Asignar los que aún están sin agente (round-robin)
         df_sin_asignar = df[df["Agente BPO"] == ""].copy()
         indices_sin_asignar = df_sin_asignar.index.tolist()
-        registros_por_agente = len(df) // len(agentes_bpo)
-        faltantes = {
-            agente: max(0, registros_por_agente - asignaciones[agente]) 
-            for agente in agentes_bpo
-        }
-        for agente in agentes_bpo:
-            for _ in range(faltantes[agente]):
-                if indices_sin_asignar:
-                    df.at[indices_sin_asignar.pop(0), "Agente BPO"] = agente
         i = 0
         while indices_sin_asignar:
             idx = indices_sin_asignar.pop(0)
@@ -141,24 +133,38 @@ if uploaded_file:
             df.at[idx, "Agente BPO"] = agente
             i += 1
 
-        # Calcular la distribución final
+        # Aquí se muestra la distribución REAL según la asignación en el DataFrame (si se quisiera solo el conteo real usarías value_counts)
+        # Pero a continuación calculamos la distribución según la regla solicitada:
+        # Se toma el total general y se resta los "Agente Incontactable" para repartir el resto entre agentes
         total_general = df.shape[0]
         incontactables = df[df["Agente BPO"] == "Agente Incontactable"].shape[0]
-        resto = total_general - incontactables
+        remainder = total_general - incontactables
 
-        agentes_repartir = [ag for ag in agentes_bpo if ag != "Agente Incontactable"]
-        n_agentes = len(agentes_repartir)
-        x = resto / (n_agentes - 0.25)
+        # Número de agentes a repartir (sin incluir "Agente Incontactable")
+        n_agentes = len(agentes_bpo)
+        # Fórmula: (n_agentes - 1)*x + 0.75*x = remainder  =>  x = remainder / (n_agentes - 0.25)
+        x = remainder / (n_agentes - 0.25)
 
+        # Crear el diccionario de distribución
         distribucion = {}
-        for agente in agentes_repartir:
+        for agente in agentes_bpo:
             if agente == "Melissa Florian":
                 distribucion[agente] = int(0.75 * x)
             else:
                 distribucion[agente] = int(x)
         distribucion["Agente Incontactable"] = incontactables
 
-        # Estilos CSS para el resumen
+        # Ajuste para cuadrar el total (por si la conversión a enteros genera diferencia)
+        suma_asignada = sum(distribucion[ag] for ag in distribucion if ag != "Agente Incontactable")
+        diferencia = remainder - suma_asignada
+        if diferencia != 0:
+            # Se ajusta sumando la diferencia al primer agente que no sea Melissa Florian
+            for agente in agentes_bpo:
+                if agente != "Melissa Florian":
+                    distribucion[agente] += diferencia
+                    break
+
+        # Mostrar el resumen de distribución final
         st.markdown(
             """
             <style>
