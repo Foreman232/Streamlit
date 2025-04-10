@@ -289,7 +289,7 @@ if uploaded_file:
         ]
         df_final = df[[col for col in columnas_finales if col in df.columns]]
         
-        st.markdown("### 👀 Vista previa de los primeros registros (14 columnas finales)")
+        st.markdown("### 👀 Vista previa de los primeros registros")
         st.dataframe(df_final.head(15), height=500, use_container_width=True)
 
         now_str = datetime.now().strftime("%d-%m-%Y_%H-%M-%S")
