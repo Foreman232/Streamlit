@@ -62,7 +62,9 @@ if uploaded_file:
         time.sleep(1)
         df = pd.read_excel(uploaded_file)
         
-        ### Limpieza y ajustes ###
+        ############################################
+        # 1. Limpieza y ajustes básicos
+        ############################################
         df["Esquema"] = df["Esquema"].fillna("SIN ASIGNAR").apply(
             lambda x: "SIN ASIGNAR" if x not in ["Dedicado", "Regular"] else x
         )
@@ -78,8 +80,10 @@ if uploaded_file:
         df["Etapa"] = "Pendiente de Contacto"
         df["Agente BPO"] = ""  # Inicialmente vacío
 
-        ### Asignaciones forzadas ###
-        # 1. Incontactables (si existe el archivo)
+        ######################################################
+        # 2. Asignaciones forzadas (por reglas especiales)
+        ######################################################
+        # 2.1 Incontactables (si existe el archivo)
         if os.path.exists("Incontactables.xlsx"):
             try:
                 df_incontactables = pd.read_excel("Incontactables.xlsx", sheet_name=0)
@@ -94,60 +98,59 @@ if uploaded_file:
         else:
             st.info("Puedes subir manualmente 'Incontactables.xlsx' a la raíz del proyecto en Streamlit Cloud si deseas usarlo.")
 
-        # 2. Definir la lista de agentes BPO  
+        # 2.2 Definir la lista de agentes BPO
         agentes_bpo = ["Ana Paniagua", "Alysson Garcia", "Julio de Leon", "Nancy Zet", "Melissa Florian"]
         if fecha_actual.weekday() == 5:  # sábado
             agentes_bpo.append("Abigail Vasquez")
         
-        # 3. Reglas especiales:
-        #   - Casos OXXO y Axionlog asignan a Melissa Florian
+        # 2.3 Reglas especiales:
+        # - Los casos de OXXO y Axionlog se asignan a Melissa Florian
         exclusivas_melissa = ["OXXO", "Axionlog"]
         df.loc[
             df["Nombre de oportunidad1"].str.contains('|'.join(exclusivas_melissa), case=False, na=False), 
             "Agente BPO"
         ] = "Melissa Florian"
-        #   - Casos "adicionales" asignan a Ana Paniagua
+        # - Los casos "adicionales" se asignan a Ana Paniagua
         df.loc[
             df["Motivo"].str.contains("adicionales", case=False, na=False), 
             "Agente BPO"
         ] = "Ana Paniagua"
         
-        # 4. Repartir para clientes específicos (forzado)
+        # 2.4 Repartición forzada para clientes específicos
         clientes_a_repartir = ["La Comer", "Fresko", "Sumesa", "City Market"]
         df_repartir = df[df["Nombre de oportunidad1"].str.contains('|'.join(clientes_a_repartir), case=False, na=False)].copy()
         indices_repartir = df_repartir[df_repartir["Agente BPO"] == ""].index.tolist()
         for i, idx in enumerate(indices_repartir):
-            # Se asignan en orden de la lista
             agente = agentes_bpo[i % len(agentes_bpo)]
             df.at[idx, "Agente BPO"] = agente
 
-        ### Asignar los registros restantes respetando el cupo definido para cada agente ###
-        # Primero, se calculan cuántos registros forzados (asignados mediante reglas especiales) tiene cada agente.
-        # Se ignoran los que siguen vacíos.
+        ######################################################
+        # 3. Asignación de registros restantes según cupo teórico
+        ######################################################
+        # Primero, se cuentan los registros ya asignados (por reglas forzadas)
         forzadas_por_agente = df[df["Agente BPO"] != ""].groupby("Agente BPO").size().to_dict()
 
-        # Calcular el total general y el total de incontactables ya asignados.
         total_general = df.shape[0]
+        # Se cuentan los incontactables (quedarán fijos)
         incontactables = forzadas_por_agente.get("Agente Incontactable", 0)
-        remainder = total_general - incontactables  # Total a repartir entre los agentes BPO
+        # Total a repartir para los agentes BPO es lo que quede
+        remainder = total_general - incontactables
 
-        # Número de agentes (en la lista de agentes_bpo) a los que se asigna el resto.
+        # Número de agentes a repartir (en la lista agentes_bpo)
         n_agentes = len(agentes_bpo)
         # Fórmula: (n_agentes - 1)*x + 0.75*x = remainder  =>  x = remainder / (n_agentes - 0.25)
         x = remainder / (n_agentes - 0.25)
 
-        # Definir cupo teórico para cada agente:
-        # (siendo Melissa 25% menos)
+        # Definir cupo teórico para cada agente (Melissa tendrá 25% menos)
         cupo_teorico = {}
         for agente in agentes_bpo:
             if agente == "Melissa Florian":
                 cupo_teorico[agente] = int(0.75 * x)
             else:
                 cupo_teorico[agente] = int(x)
-        # Nota: "Agente Incontactable" ya se asignó de forma forzada
+        # Se puede ver la suma que se repartirá (sin incontactables)
 
-        # Calcular cuántas filas adicionales puede recibir cada agente:
-        # Disponible = cupo_teorico - filas ya forzadas (si tiene más, se limita a 0)
+        # Calcular cuántas filas adicionales puede recibir cada agente
         filas_adicionales_para = {}
         for agente in agentes_bpo:
             ya_forzadas = forzadas_por_agente.get(agente, 0)
@@ -156,14 +159,12 @@ if uploaded_file:
                 disponible = 0
             filas_adicionales_para[agente] = disponible
 
-        # Obtener los índices de filas sin asignar (columna vacía)
+        # Obtener índices de filas sin asignar (columna vacía)
         df_sin_asignar = df[df["Agente BPO"] == ""].copy()
         indices_sin_asignar = list(df_sin_asignar.index)
 
-        # Asignación round-robin respetando la capacidad adicional de cada agente.
-        # Se recorre en orden a los agentes y se asigna solo si tiene capacidad disponible.
+        # Asignación round-robin respetando el cupo adicional
         i = 0
-        # Para evitar un loop infinito, se verifica que en cada ronda se asigne al menos una fila.
         while indices_sin_asignar:
             asignado_en_ronda = False
             for agente in agentes_bpo:
@@ -174,28 +175,81 @@ if uploaded_file:
                     df.at[idx, "Agente BPO"] = agente
                     filas_adicionales_para[agente] -= 1
                     asignado_en_ronda = True
-            # Si en una ronda completa no se asigna ninguno, significa que se agotó el cupo de todos.
-            # En ese caso, para no dejar filas sin asignar, se asignan las restantes arbitrariamente.
+            # Si en una ronda no se asigna ninguna fila, se asignan las restantes arbitrariamente
             if not asignado_en_ronda and indices_sin_asignar:
                 for idx in indices_sin_asignar:
-                    # Se asigna al agente que tenga el mayor cupo adicional (aunque sea negativo)
+                    # Se asigna al agente que tenga mayor cupo adicional (aunque sea 0)
                     agente_max = max(filas_adicionales_para, key=filas_adicionales_para.get)
                     df.at[idx, "Agente BPO"] = agente_max
-                break  # Se asignaron todas
+                break
 
-        ### Mostrar resumen de distribución ###
-        # Se arma un diccionario final con los totales por agente según el DataFrame final.
+        ######################################################
+        # 4. BALANCEO FINAL para igualar la distribución entre agentes
+        ######################################################
+        # Aquí se balancean los agentes "normales" (excluyendo Melissa y Agente Incontactable)
+        agentes_balancear = [ag for ag in agentes_bpo if ag != "Melissa Florian"]
+        # Nos aseguramos que Agente Incontactable no esté incluido, en caso de que aparezca
+        if "Agente Incontactable" in agentes_balancear:
+            agentes_balancear.remove("Agente Incontactable")
+
+        # Obtener el conteo final real por agente
         conteo_final = df["Agente BPO"].value_counts().to_dict()
-        # Se muestra junto con el cupo teórico calculado para comparar.
+        # Se calculará un promedio aproximado para estos agentes
+        total_balancear = sum(conteo_final.get(ag, 0) for ag in agentes_balancear)
+        promedio_aprox = total_balancear // len(agentes_balancear)
+        
+        # Listas para agentes por sobre y por debajo del promedio (diferencia mayor a 1)
+        agentes_por_encima = []
+        agentes_por_debajo = []
+        for ag in agentes_balancear:
+            count_actual = conteo_final.get(ag, 0)
+            if count_actual > promedio_aprox + 1:
+                sobrante = count_actual - promedio_aprox
+                agentes_por_encima.append((ag, sobrante))
+            elif count_actual < promedio_aprox:
+                faltante = promedio_aprox - count_actual
+                agentes_por_debajo.append((ag, faltante))
+        
+        # Ordenar para tomar primero los mayores desvíos
+        agentes_por_encima.sort(key=lambda x: x[1], reverse=True)
+        agentes_por_debajo.sort(key=lambda x: x[1], reverse=True)
+        
+        # Se transfieren filas de los agentes "encima" a los "debajo"
+        # Se realiza un ciclo simple para mover filas hasta igualar lo más posible
+        for i_enc, (ag_enc, sobrante) in enumerate(agentes_por_encima):
+            for i_fal, (ag_fal, faltante) in enumerate(agentes_por_debajo):
+                while sobrante > 0 and faltante > 0:
+                    # Buscar una fila que pertenezca a ag_enc para reasignarla a ag_fal
+                    filas_ag_enc = df[df["Agente BPO"] == ag_enc].index.tolist()
+                    if not filas_ag_enc:
+                        break
+                    idx_mover = filas_ag_enc[0]  # Tomar la primera fila
+                    df.at[idx_mover, "Agente BPO"] = ag_fal
+                    sobrante -= 1
+                    faltante -= 1
+                    conteo_final[ag_enc] -= 1
+                    conteo_final[ag_fal] = conteo_final.get(ag_fal, 0) + 1
+                # Actualizar la tupla con el faltante remanente
+                agentes_por_debajo[i_fal] = (ag_fal, faltante)
+            # Actualizar la tupla con el sobrante remanente
+            agentes_por_encima[i_enc] = (ag_enc, sobrante)
+        
+        ######################################################
+        # 5. Mostrar resumen y descargar el archivo final
+        ######################################################
+        # Se arma el resumen final con el total real por agente y se indican los cupos teóricos
+        conteo_final = df["Agente BPO"].value_counts().to_dict()
         resumen_html = "<div class='resumen-container'>"
         resumen_html += "<div class='resumen-title'>📊 Resumen de Distribución Final</div>"
         for agente in agentes_bpo:
-            # Se muestra: forzadas + adicionales asignadas vs. cupo teórico
+            if agente in ["Agente Incontactable"]:
+                continue
             asignado = conteo_final.get(agente, 0)
-            resumen_html += f"<div class='resumen-item'><strong>{agente}:</strong> {asignado} (máximo: {cupo_teorico[agente]})</div>"
-        # Agregar a los incontactables
-        incontactable_total = conteo_final.get("Agente Incontactable", 0)
-        resumen_html += f"<div class='resumen-item'><strong>Agente Incontactable:</strong> {incontactable_total}</div>"
+            resumen_html += f"<div class='resumen-item'><strong>{agente}:</strong> {asignado} (máximo teórico: {cupo_teorico.get(agente, 'N/A')})</div>"
+        # Mostrar incontactables
+        incont = conteo_final.get("Agente Incontactable", 0)
+        resumen_html += f"<div class='resumen-item'><strong>Agente Incontactable:</strong> {incont}</div>"
+        resumen_html += f"<div class='resumen-item'><strong>Total general:</strong> {df.shape[0]}</div>"
         resumen_html += "</div>"
 
         st.markdown(
@@ -227,14 +281,14 @@ if uploaded_file:
 
         st.success("✅ Archivo procesado con éxito")
 
-        ### Vista previa y descarga ###
+        # Vista previa y descarga del Excel final
         columnas_finales = [
             'Delv Ship-To Party', 'Delv Ship-To Name', 'Order Quantity', 'Delivery Nbr',
             'Esquema', 'Coordinador LT', 'Shpt Haulier Name', 'Ejecutivo RBO', 'Motivo',
             'Fecha de recolección', 'Nombre de oportunidad1', 'Fecha de cierre', 'Etapa', 'Agente BPO'
         ]
         df_final = df[[col for col in columnas_finales if col in df.columns]]
-
+        
         st.markdown("### 👀 Vista previa de los primeros registros (14 columnas finales)")
         st.dataframe(df_final.head(15), height=500, use_container_width=True)
 
@@ -242,7 +296,6 @@ if uploaded_file:
         excel_filename = f"Programa_Modificado_{now_str}.xlsx"
         csv_filename = f"Programa_Modificado_{now_str}.csv"
         
-        # Exportar a Excel y CSV
         df_final.to_excel(excel_filename, index=False)
         df_final.to_csv(csv_filename, index=False)
         
