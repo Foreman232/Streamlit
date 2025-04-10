@@ -18,11 +18,6 @@ with col2:
 
 with st.expander("ℹ️ ¿Qué hace esta herramienta?"):
     st.markdown("""
-    - Corrige campos vacíos o incorrectos.
-    - Asigna automáticamente agentes BPO.
-    - Detecta y etiqueta como 'Incontactables' según lista externa.
-    - Asigna a Ana Paniagua todos los registros con motivo 'Adicionales'.
-    - Agrega a Abigail Vasquez a la distribución si es sábado.
     - Descarga un archivo limpio, listo para usar.
     """)
 
