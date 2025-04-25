@@ -249,10 +249,74 @@ if uploaded_file:
             resumen_html += f"<div class='resumen-item'><strong>{agente}:</strong> {asignado} (máximo teórico: {cupo_teorico.get(agente, 'N/A')})</div>"
         incont = conteo_final.get("Agente Incontactable", 0)
         resumen_html += f"<div class='resumen-item'><strong>Agente Incontactable:</strong> {incont}</div>"
+        resumen_html += f"<div class='resumen-item'><strong>Total general:</strong> {df.shape[0]}</div>"
         resumen_html += "</div>"
+
+        st.markdown(
+            """
+            <style>
+            .resumen-container {
+                background: #f7f9fc;
+                padding: 20px;
+                border-radius: 8px;
+                margin-top: 20px;
+                box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+                max-width: 600px;
+            }
+            .resumen-title {
+                font-size: 1.25rem;
+                font-weight: bold;
+                color: #333;
+                margin-bottom: 10px;
+            }
+            .resumen-item {
+                font-size: 1rem;
+                margin: 5px 0;
+                color: #555;
+            }
+            </style>
+            """, unsafe_allow_html=True
+        )
         st.markdown(resumen_html, unsafe_allow_html=True)
 
-        # Final: Descargar archivo final
-        archivo_final = "archivo_procesado.xlsx"
-        df.to_excel(archivo_final, index=False)
-        st.download_button("📥 Descargar archivo procesado", archivo_final)
+        st.success("✅ Archivo procesado con éxito")
+
+        # Vista previa y descarga final
+        columnas_finales = [
+            'Delv Ship-To Party', 'Delv Ship-To Name', 'Order Quantity', 'Delivery Nbr',
+            'Esquema', 'Coordinador LT', 'Shpt Haulier Name', 'Ejecutivo RBO', 'Motivo',
+            'Fecha de recolección', 'Nombre de oportunidad1', 'Fecha de cierre', 'Etapa', 'Agente BPO'
+        ]
+        df_final = df[[col for col in columnas_finales if col in df.columns]]
+        
+        st.markdown("### 👀 Vista previa de los primeros registros (14 columnas finales)")
+        st.dataframe(df_final.head(15), height=500, use_container_width=True)
+
+        now_str = datetime.now().strftime("%d-%m-%Y_%H-%M-%S")
+        excel_filename = f"Programa_Modificado_{now_str}.xlsx"
+        csv_filename = f"Programa_Modificado_{now_str}.csv"
+        
+        df_final.to_excel(excel_filename, index=False)
+        df_final.to_csv(csv_filename, index=False)
+        
+        st.markdown(f"**CHEP**: Archivo generado el {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}")
+        col1, col2 = st.columns(2)
+        with col1:
+            with open(excel_filename, "rb") as f:
+                st.download_button(
+                    label="📥 Descargar Excel",
+                    data=f,
+                    file_name=excel_filename,
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                )
+        with col2:
+            with open(csv_filename, "rb") as f:
+                st.download_button(
+                    label="📥 Descargar CSV",
+                    data=f,
+                    file_name=csv_filename,
+                    mime="text/csv"
+                )
+
+st.markdown("---")
+st.caption("🚀 Creado por el equipo de BPO Innovations")
