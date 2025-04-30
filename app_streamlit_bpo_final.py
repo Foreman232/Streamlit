@@ -22,7 +22,7 @@ with st.expander("ℹ️ ¿Qué hace esta herramienta?"):
     """)
 
 # Selector de archivo
-uploaded_file = st.file_uploader("📤 Sube tu archivo Excel para procesar", type=["xlsx"])
+uploaded_file = st.file_uploader("📄 Sube tu archivo Excel para procesar", type=["xlsx"])
 
 # Fechas
 fecha_actual = datetime.today()
@@ -30,28 +30,31 @@ fecha_siguiente = fecha_actual + timedelta(days=1)
 fecha_oportunidad = f"{fecha_actual.day}-{fecha_actual.strftime('%b').lower()}-{fecha_actual.year}"
 fecha_cierre = fecha_actual.strftime("%d/%m/%Y")
 
-# Funciones de utilidad
-def remove_accents(text):
-    if isinstance(text, str):
-        return ''.join(
-            c for c in unicodedata.normalize('NFD', text) 
-            if unicodedata.category(c) != 'Mn'
-        )
-    return text
+# Lista de agentes base
+agentes_bpo = ["Ana Paniagua", "Alysson Garcia", "Christian Tocay", "Nancy Zet", "Melissa Florian"]
+if fecha_actual.weekday() == 5:  # sábado
+    agentes_bpo.append("Abigail Vasquez")
 
-def asignar_fecha(row):
-    if isinstance(row, str):
-        valor = row.strip().lower()
-        if valor == "ad":
-            return fecha_actual.strftime("%d/%m/%Y")
-        elif valor in ["od", "on demand", "bamx"]:
-            return fecha_siguiente.strftime("%d/%m/%Y")
-    try:
-        fecha = pd.to_datetime(row)
-        return fecha.strftime("%d/%m/%Y")
-    except:
-        return row
+# 🔁 Reemplazo manual de agente (opcional)
+st.subheader("🔁 Reemplazo manual de un agente BPO (opcional)")
+agente_ausente = st.selectbox("Selecciona al agente que está ausente", ["Ninguno"] + agentes_bpo, key="ausente")
 
+agente_reemplazo = None
+reemplazo_realizado = False
+reemplazo_info = ""
+
+if agente_ausente != "Ninguno":
+    agente_reemplazo = st.text_input("Nombre del agente que lo va a sustituir (nuevo)", key="reemplazo")
+
+    if agente_reemplazo:
+        if agente_reemplazo in agentes_bpo:
+            st.warning("⚠️ El agente de reemplazo ya está en la lista. Escribe un nuevo nombre diferente.")
+        else:
+            agentes_bpo = [agente_reemplazo if ag == agente_ausente else ag for ag in agentes_bpo]
+            reemplazo_realizado = True
+            reemplazo_info = f"ℹ️ {agente_ausente} fue reemplazado manualmente por {agente_reemplazo}."
+            st.success(f"✅ {agente_ausente} ha sido reemplazado por {agente_reemplazo}")
+            
 if uploaded_file:
     with st.spinner("⏳ Procesando archivo..."):
         time.sleep(1)
