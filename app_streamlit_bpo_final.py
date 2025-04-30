@@ -22,7 +22,7 @@ with st.expander("ℹ️ ¿Qué hace esta herramienta?"):
     """)
 
 # Selector de archivo
-uploaded_file = st.file_uploader("📄 Sube tu archivo Excel para procesar", type=["xlsx"])
+uploaded_file = st.file_uploader("📤 Sube tu archivo Excel para procesar", type=["xlsx"])
 
 # Fechas
 fecha_actual = datetime.today()
@@ -30,9 +30,31 @@ fecha_siguiente = fecha_actual + timedelta(days=1)
 fecha_oportunidad = f"{fecha_actual.day}-{fecha_actual.strftime('%b').lower()}-{fecha_actual.year}"
 fecha_cierre = fecha_actual.strftime("%d/%m/%Y")
 
-# Lista de agentes base
+# Funciones de utilidad
+def remove_accents(text):
+    if isinstance(text, str):
+        return ''.join(
+            c for c in unicodedata.normalize('NFD', text) 
+            if unicodedata.category(c) != 'Mn'
+        )
+    return text
+
+def asignar_fecha(row):
+    if isinstance(row, str):
+        valor = row.strip().lower()
+        if valor == "ad":
+            return fecha_actual.strftime("%d/%m/%Y")
+        elif valor in ["od", "on demand", "bamx"]:
+            return fecha_siguiente.strftime("%d/%m/%Y")
+    try:
+        fecha = pd.to_datetime(row)
+        return fecha.strftime("%d/%m/%Y")
+    except:
+        return row
+
+# 2.2 Definir la lista de agentes BPO
 agentes_bpo = ["Ana Paniagua", "Alysson Garcia", "Christian Tocay", "Nancy Zet", "Melissa Florian"]
-if fecha_actual.weekday() == 5:  # sábado
+if fecha_actual.weekday() == 5:
     agentes_bpo.append("Abigail Vasquez")
 
 # 🔁 Reemplazo manual de agente (opcional)
@@ -54,6 +76,7 @@ if agente_ausente != "Ninguno":
             reemplazo_realizado = True
             reemplazo_info = f"ℹ️ {agente_ausente} fue reemplazado manualmente por {agente_reemplazo}."
             st.success(f"✅ {agente_ausente} ha sido reemplazado por {agente_reemplazo}")
+
             
 if uploaded_file:
     with st.spinner("⏳ Procesando archivo..."):
