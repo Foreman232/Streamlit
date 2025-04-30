@@ -296,7 +296,8 @@ if agente_ausente != "Ninguno":
         resumen_html += f"<div class='resumen-item'><strong>Agente Incontactable:</strong> {incont}</div>"
 if reemplazo_realizado:
     resumen_html += f"<div class='resumen-item'><em>{reemplazo_info}</em></div>"
-        resumen_html += "</div>"
+
+resumen_html += "</div>"
 
         st.markdown(
             """
