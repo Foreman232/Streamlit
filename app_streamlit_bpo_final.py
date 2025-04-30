@@ -52,11 +52,12 @@ def asignar_fecha(row):
     except:
         return row
 
-# 🔁 Reemplazo manual de agente (opcional)
+# Lista de agentes BPO
 agentes_bpo = ["Ana Paniagua", "Alysson Garcia", "Christian Tocay", "Nancy Zet", "Melissa Florian"]
-if fecha_actual.weekday() == 5:
+if fecha_actual.weekday() == 5:  # sábado
     agentes_bpo.append("Abigail Vasquez")
 
+# 🔁 Reemplazo manual de agente (opcional)
 st.subheader("🔁 Reemplazo manual de un agente BPO (opcional)")
 agente_ausente = st.selectbox("Selecciona al agente que está ausente", ["Ninguno"] + agentes_bpo, key="ausente")
 
@@ -75,30 +76,24 @@ if agente_ausente != "Ninguno":
             reemplazo_info = f"ℹ️ {agente_ausente} fue reemplazado manualmente por {agente_reemplazo}."
             st.success(f"✅ {agente_ausente} ha sido reemplazado por {agente_reemplazo}")
 
-            
 if uploaded_file:
     with st.spinner("⏳ Procesando archivo..."):
         time.sleep(1)
-        # Leer todas las hojas del Excel
         dfs = pd.read_excel(uploaded_file, sheet_name=None)
-        # Lista de columnas obligatorias para detectar la hoja de trabajo
         columnas_obligatorias = ['Delv Ship-To Name', 'Esquema']
         hoja_correcta = None
-        nombre_hoja_seleccionada = None
         for nombre, df_candidate in dfs.items():
             if set(columnas_obligatorias).issubset(df_candidate.columns):
                 hoja_correcta = df_candidate
-                nombre_hoja_seleccionada = nombre
                 st.write(f"Se ha seleccionado la hoja: {nombre}")
                 break
+
         if hoja_correcta is None:
             st.error("No se encontró una hoja que contenga las columnas necesarias.")
         else:
-            df = hoja_correcta
-        
-        ############################################
-        # 1. Limpieza y ajustes básicos
-        ############################################
+            df = hoja_correcta.copy()
+
+        # Limpieza y ajustes
         df["Esquema"] = df["Esquema"].fillna("SIN ASIGNAR").apply(
             lambda x: "SIN ASIGNAR" if x not in ["Dedicado", "Regular"] else x
         )
@@ -112,12 +107,9 @@ if uploaded_file:
         df["Nombre de oportunidad1"] = df["Delv Ship-To Name"] + " " + fecha_oportunidad
         df["Fecha de cierre"] = fecha_cierre
         df["Etapa"] = "Pendiente de Contacto"
-        df["Agente BPO"] = ""  # Inicialmente vacío
+        df["Agente BPO"] = ""
 
-        ######################################################
-        # 2. Asignaciones forzadas (por reglas especiales)
-        ######################################################
-        # 2.1 Incontactables (si existe el archivo)
+                 # 2. Asignaciones forzadas
         if os.path.exists("Incontactables.xlsx"):
             try:
                 df_incontactables = pd.read_excel("Incontactables.xlsx", sheet_name=0)
@@ -129,243 +121,151 @@ if uploaded_file:
                 ] = "Agente Incontactable"
             except Exception as e:
                 st.warning(f"No se pudo procesar 'Incontactables.xlsx'. Error: {e}")
-        else:
-            st.info("Puedes subir manualmente 'Incontactables.xlsx' a la raíz del proyecto en Streamlit Cloud si deseas usarlo.")
 
-        # 2.2 Definir la lista de agentes BPO
-        agentes_bpo = ["Ana Paniagua", "Alysson Garcia", "Christian Tocay", "Nancy Zet", "Melissa Florian"]
-        if fecha_actual.weekday() == 5:  # sábado
-            agentes_bpo.append("Abigail Vasquez")
-# 🔁 Reemplazo manual de agente (opcional)
-st.subheader("🔁 Reemplazo manual de un agente BPO (opcional)")
-agente_ausente = st.selectbox("Selecciona al agente que está ausente", ["Ninguno"] + agentes_bpo, key="ausente")
-
-agente_reemplazo = None
-reemplazo_realizado = False
-reemplazo_info = ""
-
-if agente_ausente != "Ninguno":
-    agente_reemplazo = st.text_input("Nombre del agente que lo va a sustituir (nuevo)", key="reemplazo")
-
-    if agente_reemplazo:
-        if agente_reemplazo in agentes_bpo:
-            st.warning("⚠️ El agente de reemplazo ya está en la lista. Escribe un nuevo nombre diferente.")
-        else:
-            agentes_bpo = [agente_reemplazo if ag == agente_ausente else ag for ag in agentes_bpo]
-            reemplazo_realizado = True
-            reemplazo_info = f"ℹ️ {agente_ausente} fue reemplazado manualmente por {agente_reemplazo}."
-            st.success(f"✅ {agente_ausente} ha sido reemplazado por {agente_reemplazo}")
-        
-        # 2.3 Reglas especiales:
-        # - Los casos de OXXO y Axionlog se asignan a Melissa Florian
+        # Casos especiales
         exclusivas_melissa = ["OXXO", "Axionlog"]
         df.loc[
             df["Nombre de oportunidad1"].str.contains('|'.join(exclusivas_melissa), case=False, na=False), 
             "Agente BPO"
         ] = "Melissa Florian"
-        # - Los casos "adicionales" se asignan a Ana Paniagua
+
         df.loc[
             df["Motivo"].str.contains("adicionales", case=False, na=False), 
             "Agente BPO"
         ] = "Ana Paniagua"
-        
-        # 2.4 Repartición forzada para clientes específicos
-        clientes_a_repartir = ["La Comer", "Fresko", "Sumesa", "City Market"]
-        df_repartir = df[df["Nombre de oportunidad1"].str.contains('|'.join(clientes_a_repartir), case=False, na=False)].copy()
-        indices_repartir = df_repartir[df_repartir["Agente BPO"] == ""].index.tolist()
-        for i, idx in enumerate(indices_repartir):
+
+        # Distribución forzada clientes especiales
+        clientes_especiales = ["La Comer", "Fresko", "Sumesa", "City Market"]
+        df_especial = df[df["Nombre de oportunidad1"].str.contains('|'.join(clientes_especiales), case=False, na=False)].copy()
+        indices_a_repartir = df_especial[df_especial["Agente BPO"] == ""].index.tolist()
+        for i, idx in enumerate(indices_a_repartir):
             agente = agentes_bpo[i % len(agentes_bpo)]
             df.at[idx, "Agente BPO"] = agente
 
-        ######################################################
-        # 3. Asignación de registros restantes según cupo teórico
-        ######################################################
-        # Primero, se cuentan los registros ya asignados (por reglas forzadas)
-        forzadas_por_agente = df[df["Agente BPO"] != ""].groupby("Agente BPO").size().to_dict()
+        # Calcular cupo
+        forzadas = df[df["Agente BPO"] != ""].groupby("Agente BPO").size().to_dict()
+        total = df.shape[0]
+        incontactables = forzadas.get("Agente Incontactable", 0)
+        remainder = total - incontactables
+        x = remainder / (len(agentes_bpo) - 0.25)
 
-        total_general = df.shape[0]
-        # Se cuentan los incontactables (quedarán fijos)
-        incontactables = forzadas_por_agente.get("Agente Incontactable", 0)
-        # Total a repartir para los agentes BPO es lo que quede
-        remainder = total_general - incontactables
+        cupo_teorico = {
+            agente: int(0.75 * x) if agente == "Melissa Florian" else int(x)
+            for agente in agentes_bpo
+        }
 
-        # Número de agentes a repartir (en la lista agentes_bpo)
-        n_agentes = len(agentes_bpo)
-        # Fórmula: (n_agentes - 1)*x + 0.75*x = remainder  =>  x = remainder / (n_agentes - 0.25)
-        x = remainder / (n_agentes - 0.25)
+        disponibles = {
+            agente: max(cupo_teorico[agente] - forzadas.get(agente, 0), 0)
+            for agente in agentes_bpo
+        }
 
-        # Definir cupo teórico para cada agente (Melissa tendrá 25% menos)
-        cupo_teorico = {}
-        for agente in agentes_bpo:
-            if agente == "Melissa Florian":
-                cupo_teorico[agente] = int(0.75 * x)
-            else:
-                cupo_teorico[agente] = int(x)
+        indices_sin_asignar = df[df["Agente BPO"] == ""].index.tolist()
 
-        # Calcular cuántas filas adicionales puede recibir cada agente
-        filas_adicionales_para = {}
-        for agente in agentes_bpo:
-            ya_forzadas = forzadas_por_agente.get(agente, 0)
-            disponible = cupo_teorico[agente] - ya_forzadas
-            if disponible < 0:
-                disponible = 0
-            filas_adicionales_para[agente] = disponible
-
-        # Obtener índices de filas sin asignar (columna vacía)
-        df_sin_asignar = df[df["Agente BPO"] == ""].copy()
-        indices_sin_asignar = list(df_sin_asignar.index)
-
-        # Asignación round-robin respetando el cupo adicional
         while indices_sin_asignar:
-            asignado_en_ronda = False
+            asignado = False
             for agente in agentes_bpo:
-                if not indices_sin_asignar:
-                    break
-                if filas_adicionales_para.get(agente, 0) > 0:
+                if disponibles[agente] > 0 and indices_sin_asignar:
                     idx = indices_sin_asignar.pop(0)
                     df.at[idx, "Agente BPO"] = agente
-                    filas_adicionales_para[agente] -= 1
-                    asignado_en_ronda = True
-            # Si en una ronda no se asigna ninguna fila, se asignan las restantes arbitrariamente
-            if not asignado_en_ronda and indices_sin_asignar:
+                    disponibles[agente] -= 1
+                    asignado = True
+            if not asignado:
                 for idx in indices_sin_asignar:
-                    # Se asigna al agente que tenga mayor cupo adicional (aunque sea 0)
-                    agente_max = max(filas_adicionales_para, key=filas_adicionales_para.get)
-                    df.at[idx, "Agente BPO"] = agente_max
+                    mayor = max(disponibles, key=disponibles.get)
+                    df.at[idx, "Agente BPO"] = mayor
                 break
+        # Balanceo final
+        agentes_normales = [ag for ag in agentes_bpo if ag != "Melissa Florian"]
+        if "Agente Incontactable" in agentes_normales:
+            agentes_normales.remove("Agente Incontactable")
 
-        ######################################################
-        # 4. BALANCEO FINAL para igualar la distribución entre agentes
-        ######################################################
-        # Se balancean los agentes "normales" (excluyendo Melissa y Agente Incontactable)
-        agentes_balancear = [ag for ag in agentes_bpo if ag != "Melissa Florian"]
-        if "Agente Incontactable" in agentes_balancear:
-            agentes_balancear.remove("Agente Incontactable")
+        conteo_final = df["Agente BPO"].value_counts().to_dict()
+        total_balancear = sum(conteo_final.get(ag, 0) for ag in agentes_normales)
+        promedio = total_balancear // len(agentes_normales)
 
-        # Obtener el conteo final real por agente
+        agentes_sobra = [(ag, conteo_final.get(ag, 0) - promedio) for ag in agentes_normales if conteo_final.get(ag, 0) > promedio + 1]
+        agentes_falta = [(ag, promedio - conteo_final.get(ag, 0)) for ag in agentes_normales if conteo_final.get(ag, 0) < promedio]
+
+        for ag_sobra, sobra in agentes_sobra:
+            for ag_falta, falta in agentes_falta:
+                while sobra > 0 and falta > 0:
+                    idx_mover = df[df["Agente BPO"] == ag_sobra].index[0]
+                    df.at[idx_mover, "Agente BPO"] = ag_falta
+                    sobra -= 1
+                    falta -= 1
+                conteo_final[ag_sobra] -= sobra
+                conteo_final[ag_falta] = conteo_final.get(ag_falta, 0) + falta
+
+        # Resumen final
         conteo_final = df["Agente BPO"].value_counts().to_dict()
-        total_balancear = sum(conteo_final.get(ag, 0) for ag in agentes_balancear)
-        promedio_aprox = total_balancear // len(agentes_balancear)
-        
-        # Listas para agentes por sobre y por debajo del promedio (diferencia mayor a 1)
-        agentes_por_encima = []
-        agentes_por_debajo = []
-        for ag in agentes_balancear:
-            count_actual = conteo_final.get(ag, 0)
-            if count_actual > promedio_aprox + 1:
-                sobrante = count_actual - promedio_aprox
-                agentes_por_encima.append((ag, sobrante))
-            elif count_actual < promedio_aprox:
-                faltante = promedio_aprox - count_actual
-                agentes_por_debajo.append((ag, faltante))
-        
-        # Ordenar de mayor a menor diferencia
-        agentes_por_encima.sort(key=lambda x: x[1], reverse=True)
-        agentes_por_debajo.sort(key=lambda x: x[1], reverse=True)
-        
-        # Transferir filas desde agentes con exceso a los que tengan déficit
-        for i_enc, (ag_enc, sobrante) in enumerate(agentes_por_encima):
-            for i_fal, (ag_fal, faltante) in enumerate(agentes_por_debajo):
-                while sobrante > 0 and faltante > 0:
-                    filas_ag_enc = df[df["Agente BPO"] == ag_enc].index.tolist()
-                    if not filas_ag_enc:
-                        break
-                    idx_mover = filas_ag_enc[0]
-                    df.at[idx_mover, "Agente BPO"] = ag_fal
-                    sobrante -= 1
-                    faltante -= 1
-                    conteo_final[ag_enc] -= 1
-                    conteo_final[ag_fal] = conteo_final.get(ag_fal, 0) + 1
-                agentes_por_debajo[i_fal] = (ag_fal, faltante)
-            agentes_por_encima[i_enc] = (ag_enc, sobrante)
-        
-        ######################################################
-        # 5. Mostrar resumen y descargar el archivo final
-        ######################################################
-        conteo_final = df["Agente BPO"].value_counts().to_dict()
-        
         resumen_html = "<div class='resumen-container'>"
         resumen_html += "<div class='resumen-title'>📊 Resumen de Distribución Final</div>"
         for agente in agentes_bpo:
-            if agente in ["Agente Incontactable"]:
+            if agente == "Agente Incontactable":
                 continue
             asignado = conteo_final.get(agente, 0)
             resumen_html += f"<div class='resumen-item'><strong>{agente}:</strong> {asignado} (máximo teórico: {cupo_teorico.get(agente, 'N/A')})</div>"
-        incont = conteo_final.get("Agente Incontactable", 0)
-        resumen_html += f"<div class='resumen-item'><strong>Agente Incontactable:</strong> {incont}</div>"
-
-
+        resumen_html += f"<div class='resumen-item'><strong>Agente Incontactable:</strong> {conteo_final.get('Agente Incontactable', 0)}</div>"
         if reemplazo_realizado:
-    resumen_html += f"<div class='resumen-item'><em>{reemplazo_info}</em></div>"
+            resumen_html += f"<div class='resumen-item'><em>{reemplazo_info}</em></div>"
+        resumen_html += "</div>"
 
-resumen_html += "</div>"
-
-st.markdown(
-    """
-    <style>
-    .resumen-container {
-        background: #f7f9fc;
-        padding: 20px;
-        border-radius: 8px;
-        margin-top: 20px;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-        max-width: 600px;
-    }
-    .resumen-title {
-        font-size: 1.25rem;
-        font-weight: bold;
-        color: #333;
-        margin-bottom: 10px;
-    }
-    .resumen-item {
-        font-size: 1rem;
-        margin: 5px 0;
-        color: #555;
-    }
-    </style>
-    """, unsafe_allow_html=True
-)
-st.markdown(resumen_html, unsafe_allow_html=True)
- 
-        
+        st.markdown(
+            """
+            <style>
+            .resumen-container {
+                background: #f7f9fc;
+                padding: 20px;
+                border-radius: 8px;
+                margin-top: 20px;
+                box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+                max-width: 600px;
+            }
+            .resumen-title {
+                font-size: 1.25rem;
+                font-weight: bold;
+                color: #333;
+                margin-bottom: 10px;
+            }
+            .resumen-item {
+                font-size: 1rem;
+                margin: 5px 0;
+                color: #555;
+            }
+            </style>
+            """, unsafe_allow_html=True
+        )
+        st.markdown(resumen_html, unsafe_allow_html=True)
         st.success("✅ Archivo procesado con éxito")
 
-        # Vista previa y descarga final
+        # Exportar resultado
         columnas_finales = [
             'Delv Ship-To Party', 'Delv Ship-To Name', 'Order Quantity', 'Delivery Nbr',
             'Esquema', 'Coordinador LT', 'Shpt Haulier Name', 'Ejecutivo RBO', 'Motivo',
             'Fecha de recolección', 'Nombre de oportunidad1', 'Fecha de cierre', 'Etapa', 'Agente BPO'
         ]
         df_final = df[[col for col in columnas_finales if col in df.columns]]
-        
-        st.markdown("### 👀 Vista previa de los primeros registros (14 columnas finales)")
-        st.dataframe(df_final.head(15), height=500, use_container_width=True)
+
+        st.markdown("### 👀 Vista previa de los primeros registros")
+        st.dataframe(df_final.head(15), height=400, use_container_width=True)
 
         now_str = datetime.now().strftime("%d-%m-%Y_%H-%M-%S")
         excel_filename = f"Programa_Modificado_{now_str}.xlsx"
         csv_filename = f"Programa_Modificado_{now_str}.csv"
-        
         df_final.to_excel(excel_filename, index=False)
         df_final.to_csv(csv_filename, index=False)
-        
-        st.markdown(f"**CHEP**: Archivo generado el {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}")
+
         col1, col2 = st.columns(2)
         with col1:
             with open(excel_filename, "rb") as f:
-                st.download_button(
-                    label="📥 Descargar Excel",
-                    data=f,
-                    file_name=excel_filename,
-                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-                )
+                st.download_button("📥 Descargar Excel", data=f, file_name=excel_filename, mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
         with col2:
             with open(csv_filename, "rb") as f:
-                st.download_button(
-                    label="📥 Descargar CSV",
-                    data=f,
-                    file_name=csv_filename,
-                    mime="text/csv"
-                )
+                st.download_button("📥 Descargar CSV", data=f, file_name=csv_filename, mime="text/csv")
 
 st.markdown("---")
 st.caption("🚀 Creado por el equipo de BPO Innovations")
+
+
+
+
