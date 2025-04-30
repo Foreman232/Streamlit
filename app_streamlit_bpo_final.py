@@ -271,7 +271,7 @@ if agente_ausente != "Ninguno":
             resumen_html += f"<div class='resumen-item'><strong>{agente}:</strong> {asignado} (máximo teórico: {cupo_teorico.get(agente, 'N/A')})</div>"
         incont = conteo_final.get("Agente Incontactable", 0)
         resumen_html += f"<div class='resumen-item'><strong>Agente Incontactable:</strong> {incont}</div>"
-        if reemplazo_realizado:
+if reemplazo_realizado:
     resumen_html += f"<div class='resumen-item'><em>{reemplazo_info}</em></div>"
         resumen_html += "</div>"
 
