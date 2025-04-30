@@ -112,6 +112,25 @@ if uploaded_file:
         agentes_bpo = ["Ana Paniagua", "Alysson Garcia", "Christian Tocay", "Nancy Zet", "Melissa Florian"]
         if fecha_actual.weekday() == 5:  # sábado
             agentes_bpo.append("Abigail Vasquez")
+# 🔁 Reemplazo manual de agente (opcional)
+st.subheader("🔁 Reemplazo manual de un agente BPO (opcional)")
+agente_ausente = st.selectbox("Selecciona al agente que está ausente", ["Ninguno"] + agentes_bpo, key="ausente")
+
+agente_reemplazo = None
+reemplazo_realizado = False
+reemplazo_info = ""
+
+if agente_ausente != "Ninguno":
+    agente_reemplazo = st.text_input("Nombre del agente que lo va a sustituir (nuevo)", key="reemplazo")
+
+    if agente_reemplazo:
+        if agente_reemplazo in agentes_bpo:
+            st.warning("⚠️ El agente de reemplazo ya está en la lista. Escribe un nuevo nombre diferente.")
+        else:
+            agentes_bpo = [agente_reemplazo if ag == agente_ausente else ag for ag in agentes_bpo]
+            reemplazo_realizado = True
+            reemplazo_info = f"ℹ️ {agente_ausente} fue reemplazado manualmente por {agente_reemplazo}."
+            st.success(f"✅ {agente_ausente} ha sido reemplazado por {agente_reemplazo}")
         
         # 2.3 Reglas especiales:
         # - Los casos de OXXO y Axionlog se asignan a Melissa Florian
@@ -249,7 +268,8 @@ if uploaded_file:
             resumen_html += f"<div class='resumen-item'><strong>{agente}:</strong> {asignado} (máximo teórico: {cupo_teorico.get(agente, 'N/A')})</div>"
         incont = conteo_final.get("Agente Incontactable", 0)
         resumen_html += f"<div class='resumen-item'><strong>Agente Incontactable:</strong> {incont}</div>"
-        resumen_html += f"<div class='resumen-item'><strong>Total general:</strong> {df.shape[0]}</div>"
+        if reemplazo_realizado:
+    resumen_html += f"<div class='resumen-item'><em>{reemplazo_info}</em></div>"
         resumen_html += "</div>"
 
         st.markdown(
