@@ -52,12 +52,11 @@ def asignar_fecha(row):
     except:
         return row
 
-# 2.2 Definir la lista de agentes BPO
+# 🔁 Reemplazo manual de agente (opcional)
 agentes_bpo = ["Ana Paniagua", "Alysson Garcia", "Christian Tocay", "Nancy Zet", "Melissa Florian"]
 if fecha_actual.weekday() == 5:
     agentes_bpo.append("Abigail Vasquez")
 
-# 🔁 Reemplazo manual de agente (opcional)
 st.subheader("🔁 Reemplazo manual de un agente BPO (opcional)")
 agente_ausente = st.selectbox("Selecciona al agente que está ausente", ["Ninguno"] + agentes_bpo, key="ausente")
 
@@ -67,7 +66,6 @@ reemplazo_info = ""
 
 if agente_ausente != "Ninguno":
     agente_reemplazo = st.text_input("Nombre del agente que lo va a sustituir (nuevo)", key="reemplazo")
-
     if agente_reemplazo:
         if agente_reemplazo in agentes_bpo:
             st.warning("⚠️ El agente de reemplazo ya está en la lista. Escribe un nuevo nombre diferente.")
@@ -285,6 +283,7 @@ if agente_ausente != "Ninguno":
         # 5. Mostrar resumen y descargar el archivo final
         ######################################################
         conteo_final = df["Agente BPO"].value_counts().to_dict()
+        
         resumen_html = "<div class='resumen-container'>"
         resumen_html += "<div class='resumen-title'>📊 Resumen de Distribución Final</div>"
         for agente in agentes_bpo:
