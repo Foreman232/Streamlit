@@ -293,38 +293,41 @@ if agente_ausente != "Ninguno":
             resumen_html += f"<div class='resumen-item'><strong>{agente}:</strong> {asignado} (máximo teórico: {cupo_teorico.get(agente, 'N/A')})</div>"
         incont = conteo_final.get("Agente Incontactable", 0)
         resumen_html += f"<div class='resumen-item'><strong>Agente Incontactable:</strong> {incont}</div>"
-if reemplazo_realizado:
+
+
+        if reemplazo_realizado:
     resumen_html += f"<div class='resumen-item'><em>{reemplazo_info}</em></div>"
 
 resumen_html += "</div>"
 
-        st.markdown(
-            """
-            <style>
-            .resumen-container {
-                background: #f7f9fc;
-                padding: 20px;
-                border-radius: 8px;
-                margin-top: 20px;
-                box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-                max-width: 600px;
-            }
-            .resumen-title {
-                font-size: 1.25rem;
-                font-weight: bold;
-                color: #333;
-                margin-bottom: 10px;
-            }
-            .resumen-item {
-                font-size: 1rem;
-                margin: 5px 0;
-                color: #555;
-            }
-            </style>
-            """, unsafe_allow_html=True
-        )
-        st.markdown(resumen_html, unsafe_allow_html=True)
-
+st.markdown(
+    """
+    <style>
+    .resumen-container {
+        background: #f7f9fc;
+        padding: 20px;
+        border-radius: 8px;
+        margin-top: 20px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        max-width: 600px;
+    }
+    .resumen-title {
+        font-size: 1.25rem;
+        font-weight: bold;
+        color: #333;
+        margin-bottom: 10px;
+    }
+    .resumen-item {
+        font-size: 1rem;
+        margin: 5px 0;
+        color: #555;
+    }
+    </style>
+    """, unsafe_allow_html=True
+)
+st.markdown(resumen_html, unsafe_allow_html=True)
+ 
+        
         st.success("✅ Archivo procesado con éxito")
 
         # Vista previa y descarga final
