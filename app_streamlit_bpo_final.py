@@ -5,6 +5,8 @@ from datetime import datetime, timedelta
 import time
 import os
 
+#configuración de código para realizar la distribución de agentes de BPO, tomar en cuenta que esto ahorra tiempo 
+
 # Configuración de la página
 st.set_page_config(layout="wide", page_title="🚀 Procesador Chep", page_icon="📊")
 
@@ -61,6 +63,18 @@ if fecha_actual.weekday() == 5:  # sábado
 st.subheader("🔁 Reemplazo manual de un agente BPO (opcional)")
 agente_ausente = st.selectbox("Selecciona al agente que está ausente", ["Ninguno"] + agentes_bpo, key="ausente")
 
+# ➕ Agregar agente adicional (sin reemplazo)
+st.subheader("➕ Agregar un nuevo agente BPO adicional (opcional)")
+nuevo_agente = st.text_input("Nombre del nuevo agente que deseas agregar")
+
+if nuevo_agente:
+    nuevo_agente_normalizado = nuevo_agente.strip().title()
+    if nuevo_agente_normalizado in agentes_bpo:
+        st.warning("⚠️ El agente ya está en la lista.")
+    else:
+        agentes_bpo.append(nuevo_agente_normalizado)
+        st.success(f"✅ {nuevo_agente_normalizado} fue agregado a la lista de agentes BPO")
+
 agente_reemplazo = None
 reemplazo_realizado = False
 reemplazo_info = ""
@@ -78,6 +92,7 @@ if agente_ausente != "Ninguno":
         agentes_bpo = [agente_reemplazo if ag == agente_ausente else ag for ag in agentes_bpo]
         reemplazo_realizado = True
         reemplazo_info = f"ℹ️ {agente_ausente} fue reemplazado manualmente por {agente_reemplazo}."
+
         st.success(f"✅ {agente_ausente} ha sido reemplazado por {agente_reemplazo}")
 
 if uploaded_file:
@@ -113,7 +128,7 @@ if uploaded_file:
         df["Etapa"] = "Pendiente de Contacto"
         df["Agente BPO"] = ""
 
-        # 2. Asignaciones forzadas
+        # Asignaciones forzadas
         if os.path.exists("Incontactables.xlsx"):
             try:
                 df_incontactables = pd.read_excel("Incontactables.xlsx", sheet_name=0)
