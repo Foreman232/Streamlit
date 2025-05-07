@@ -52,8 +52,8 @@ def asignar_fecha(row):
     except:
         return row
 
-# Lista de agentes BPO
-agentes_bpo = ["Ana Paniagua", "Alysson Garcia", "Christian Tocay", "Nancy Zet", "Melissa Florian"]
+# Lista de agentes BPO sin Christian Tocay
+agentes_bpo = ["Ana Paniagua", "Alysson Garcia", "Nancy Zet", "Melissa Florian"]
 if fecha_actual.weekday() == 5:  # sábado
     agentes_bpo.append("Abigail Vasquez")
 
@@ -66,15 +66,19 @@ reemplazo_realizado = False
 reemplazo_info = ""
 
 if agente_ausente != "Ninguno":
-    agente_reemplazo = st.text_input("Nombre del agente que lo va a sustituir (nuevo)", key="reemplazo")
-    if agente_reemplazo:
-        if agente_reemplazo in agentes_bpo:
-            st.warning("⚠️ El agente de reemplazo ya está en la lista. Escribe un nuevo nombre diferente.")
-        else:
-            agentes_bpo = [agente_reemplazo if ag == agente_ausente else ag for ag in agentes_bpo]
-            reemplazo_realizado = True
-            reemplazo_info = f"ℹ️ {agente_ausente} fue reemplazado manualmente por {agente_reemplazo}."
-            st.success(f"✅ {agente_ausente} ha sido reemplazado por {agente_reemplazo}")
+    opciones_reemplazo = ["Nadie lo reemplaza (repartir entre los demás)"] + [ag for ag in agentes_bpo if ag != agente_ausente]
+    agente_reemplazo = st.selectbox("¿Quién lo va a reemplazar?", opciones_reemplazo)
+
+    if agente_reemplazo == "Nadie lo reemplaza (repartir entre los demás)":
+        agentes_bpo = [ag for ag in agentes_bpo if ag != agente_ausente]
+        reemplazo_realizado = True
+        reemplazo_info = f"ℹ️ {agente_ausente} está ausente y no fue reemplazado. Su carga fue redistribuida."
+        st.info(f"ℹ️ {agente_ausente} será omitido en la asignación.")
+    else:
+        agentes_bpo = [agente_reemplazo if ag == agente_ausente else ag for ag in agentes_bpo]
+        reemplazo_realizado = True
+        reemplazo_info = f"ℹ️ {agente_ausente} fue reemplazado manualmente por {agente_reemplazo}."
+        st.success(f"✅ {agente_ausente} ha sido reemplazado por {agente_reemplazo}")
 
 if uploaded_file:
     with st.spinner("⏳ Procesando archivo..."):
@@ -109,7 +113,7 @@ if uploaded_file:
         df["Etapa"] = "Pendiente de Contacto"
         df["Agente BPO"] = ""
 
-                 # 2. Asignaciones forzadas
+        # 2. Asignaciones forzadas
         if os.path.exists("Incontactables.xlsx"):
             try:
                 df_incontactables = pd.read_excel("Incontactables.xlsx", sheet_name=0)
@@ -174,6 +178,7 @@ if uploaded_file:
                     mayor = max(disponibles, key=disponibles.get)
                     df.at[idx, "Agente BPO"] = mayor
                 break
+
         # Balanceo final
         agentes_normales = [ag for ag in agentes_bpo if ag != "Melissa Florian"]
         if "Agente Incontactable" in agentes_normales:
@@ -265,7 +270,3 @@ if uploaded_file:
 
 st.markdown("---")
 st.caption("🚀 Creado por el equipo de BPO Innovations")
-
-
-
-
