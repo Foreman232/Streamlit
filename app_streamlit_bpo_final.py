@@ -4,6 +4,7 @@ import unicodedata
 from datetime import datetime, timedelta
 import time
 import os
+import re
 
 # Configuración de la página
 st.set_page_config(layout="wide", page_title="🚀 Procesador Chep", page_icon="📊")
@@ -47,7 +48,9 @@ def asignar_fecha(row):
         elif valor in ["od", "on demand", "bamx"]:
             return fecha_siguiente.strftime("%d/%m/%Y")
     try:
-        fecha = pd.to_datetime(row)
+        fecha = pd.to_datetime(row, errors="coerce")
+        if pd.isna(fecha):
+            return row
         return fecha.strftime("%d/%m/%Y")
     except:
         return row
@@ -125,6 +128,7 @@ if uploaded_file:
         df["Esquema"] = df["Esquema"].fillna("SIN ASIGNAR").apply(
             lambda x: "SIN ASIGNAR" if x not in ["Dedicado", "Regular"] else x
         )
+
         df["Coordinador LT"] = df["Coordinador LT"].fillna("SIN ASIGNAR").replace("#N/A", "SIN ASIGNAR")
 
         # --- 🔹 Normalizar encabezado y valores de Shpt Haulier Name ---
@@ -137,16 +141,32 @@ if uploaded_file:
             df.loc[mask_haulier, "Shpt Haulier Name"] = "Sin Asignar"
 
         df["Ejecutivo RBO"] = df["Ejecutivo RBO"].fillna("SIN ASIGNAR").replace(["#N/A", "N/A"], "SIN ASIGNAR")
-        df["Motivo"] = df["Motivo"].fillna("#N/A").apply(remove_accents).replace("N/A", "#N/A")
 
-        df["Día de recolección"] = df["Día de recolección"].apply(asignar_fecha)
-        df.rename(columns={"Día de recolección": "Fecha de recolección"}, inplace=True)
+        # Normalizar "Motivo": quitar acentos, espacios y controlar N/A
+        if "Motivo" in df.columns:
+            df["Motivo"] = (
+                df["Motivo"]
+                .fillna("#N/A")
+                .astype(str)
+                .map(lambda x: remove_accents(x).strip())
+                .replace({"N/A": "#N/A"})
+            )
+        else:
+            df["Motivo"] = "#N/A"
+
+        # Fechas y campos calculados
+        if "Día de recolección" in df.columns:
+            df["Día de recolección"] = df["Día de recolección"].apply(asignar_fecha)
+            df.rename(columns={"Día de recolección": "Fecha de recolección"}, inplace=True)
+        else:
+            df["Fecha de recolección"] = ""
+
         df["Nombre de oportunidad1"] = df["Delv Ship-To Name"] + " " + fecha_oportunidad
         df["Fecha de cierre"] = fecha_cierre
         df["Etapa"] = "Pendiente de Contacto"
         df["Agente BPO"] = ""
 
-        # Asignaciones forzadas
+        # Asignaciones forzadas por lista externa
         if os.path.exists("Incontactables.xlsx"):
             try:
                 df_incontactables = pd.read_excel("Incontactables.xlsx", sheet_name=0)
@@ -166,9 +186,10 @@ if uploaded_file:
             "Agente BPO"
         ] = "Melissa Florian"
 
-        # 🔹 Motivo = "adicionales" → Ana Paniagua
+        # 🔹 Motivo = "adicional" o "adicionales" (en cualquier formato) → Ana Paniagua
+        #    Usa regex con límites de palabra para evitar "tradicional"
         df.loc[
-            df["Motivo"].str.contains("adicionales", case=False, na=False), 
+            df["Motivo"].str.contains(r"\badicional(es)?\b", case=False, na=False),
             "Agente BPO"
         ] = "Ana Paniagua"
 
