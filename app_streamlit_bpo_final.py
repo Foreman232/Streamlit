@@ -5,8 +5,6 @@ from datetime import datetime, timedelta
 import time
 import os
 
-#configuración de código para realizar la distribución de agentes de BPO, tomar en cuenta que esto ahorra tiempo 
-
 # Configuración de la página
 st.set_page_config(layout="wide", page_title="🚀 Procesador Chep", page_icon="📊")
 
@@ -54,10 +52,15 @@ def asignar_fecha(row):
     except:
         return row
 
-# Lista de agentes BPO sin Christian Tocay
-agentes_bpo = ["Ana Paniagua", "Alysson Garcia", "Nancy Zet", "Melissa Florian"]
-if fecha_actual.weekday() == 5:  # sábado
-    agentes_bpo.append("Abigail Vasquez")
+# ==========================
+# Lista de agentes BPO (sin Christian; con Susi)
+# ==========================
+agentes_bpo = ["Ana Paniagua", "Alysson Garcia", "Nancy Zet", "Melissa Florian", "Susi Galdamez"]
+
+# Sábado: agregar Abigail
+if fecha_actual.weekday() == 5:  # 5 = sábado
+    if "Abigail Vasquez" not in agentes_bpo:
+        agentes_bpo.append("Abigail Vasquez")
 
 # 🔁 Reemplazo manual de agente (opcional)
 st.subheader("🔁 Reemplazo manual de un agente BPO (opcional)")
@@ -92,7 +95,6 @@ if agente_ausente != "Ninguno":
         agentes_bpo = [agente_reemplazo if ag == agente_ausente else ag for ag in agentes_bpo]
         reemplazo_realizado = True
         reemplazo_info = f"ℹ️ {agente_ausente} fue reemplazado manualmente por {agente_reemplazo}."
-
         st.success(f"✅ {agente_ausente} ha sido reemplazado por {agente_reemplazo}")
 
 if uploaded_file:
@@ -112,7 +114,15 @@ if uploaded_file:
         else:
             df = hoja_correcta.copy()
 
-        # Limpieza y ajustes
+        # ==========================================
+        # Normalización/limpieza inicial del DataFrame
+        # ==========================================
+        # Reemplazar cualquier referencia previa a Christian por Susi
+        # (por si el archivo trae el nombre en alguna columna)
+        for col in df.columns:
+            if df[col].dtype == object:
+                df[col] = df[col].replace({"Christian Tocay": "Susi Galdamez"})
+
         df["Esquema"] = df["Esquema"].fillna("SIN ASIGNAR").apply(
             lambda x: "SIN ASIGNAR" if x not in ["Dedicado", "Regular"] else x
         )
@@ -153,7 +163,7 @@ if uploaded_file:
             "Agente BPO"
         ] = "Ana Paniagua"
 
-        # Distribución forzada clientes especiales
+        # Distribución forzada clientes especiales (La Comer, Fresko, Sumesa, City Market) entre TODOS los agentes actuales
         clientes_especiales = ["La Comer", "Fresko", "Sumesa", "City Market"]
         df_especial = df[df["Nombre de oportunidad1"].str.contains('|'.join(clientes_especiales), case=False, na=False)].copy()
         indices_a_repartir = df_especial[df_especial["Agente BPO"] == ""].index.tolist()
@@ -161,11 +171,15 @@ if uploaded_file:
             agente = agentes_bpo[i % len(agentes_bpo)]
             df.at[idx, "Agente BPO"] = agente
 
-        # Calcular cupo
+        # ==========================
+        # Cálculo de cupo/equilibrio
+        # ==========================
         forzadas = df[df["Agente BPO"] != ""].groupby("Agente BPO").size().to_dict()
         total = df.shape[0]
         incontactables = forzadas.get("Agente Incontactable", 0)
         remainder = total - incontactables
+
+        # Penalización 0.25 para dispersión (y Melissa con 25% menos)
         x = remainder / (len(agentes_bpo) - 0.25)
 
         cupo_teorico = {
@@ -180,6 +194,7 @@ if uploaded_file:
 
         indices_sin_asignar = df[df["Agente BPO"] == ""].index.tolist()
 
+        # Asignación round-robin respetando cupos
         while indices_sin_asignar:
             asignado = False
             for agente in agentes_bpo:
@@ -189,32 +204,33 @@ if uploaded_file:
                     disponibles[agente] -= 1
                     asignado = True
             if not asignado:
+                # Si ya no hay cupo, asignar al que tenga más disponibles (o equilibrio)
                 for idx in indices_sin_asignar:
                     mayor = max(disponibles, key=disponibles.get)
                     df.at[idx, "Agente BPO"] = mayor
                 break
 
-        # Balanceo final
+        # Balanceo final (excluye a Melissa del promedio especial y a Incontactable)
         agentes_normales = [ag for ag in agentes_bpo if ag != "Melissa Florian"]
         if "Agente Incontactable" in agentes_normales:
             agentes_normales.remove("Agente Incontactable")
 
         conteo_final = df["Agente BPO"].value_counts().to_dict()
-        total_balancear = sum(conteo_final.get(ag, 0) for ag in agentes_normales)
-        promedio = total_balancear // len(agentes_normales)
+        total_balancear = sum(conteo_final.get(ag, 0) for ag in agentes_normales) if agentes_normales else 0
+        promedio = (total_balancear // len(agentes_normales)) if agentes_normales else 0
 
         agentes_sobra = [(ag, conteo_final.get(ag, 0) - promedio) for ag in agentes_normales if conteo_final.get(ag, 0) > promedio + 1]
         agentes_falta = [(ag, promedio - conteo_final.get(ag, 0)) for ag in agentes_normales if conteo_final.get(ag, 0) < promedio]
 
         for ag_sobra, sobra in agentes_sobra:
-            for ag_falta, falta in agentes_falta:
+            for i in range(len(agentes_falta)):
+                ag_falta, falta = agentes_falta[i]
                 while sobra > 0 and falta > 0:
                     idx_mover = df[df["Agente BPO"] == ag_sobra].index[0]
                     df.at[idx_mover, "Agente BPO"] = ag_falta
                     sobra -= 1
                     falta -= 1
-                conteo_final[ag_sobra] -= sobra
-                conteo_final[ag_falta] = conteo_final.get(ag_falta, 0) + falta
+                agentes_falta[i] = (ag_falta, falta)
 
         # Resumen final
         conteo_final = df["Agente BPO"].value_counts().to_dict()
@@ -285,3 +301,4 @@ if uploaded_file:
 
 st.markdown("---")
 st.caption("🚀 Creado por el equipo de BPO Innovations")
+
