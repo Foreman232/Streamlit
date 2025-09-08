@@ -118,7 +118,6 @@ if uploaded_file:
         # Normalización/limpieza inicial del DataFrame
         # ==========================================
         # Reemplazar cualquier referencia previa a Christian por Susi
-        # (por si el archivo trae el nombre en alguna columna)
         for col in df.columns:
             if df[col].dtype == object:
                 df[col] = df[col].replace({"Christian Tocay": "Susi Galdamez"})
@@ -127,7 +126,16 @@ if uploaded_file:
             lambda x: "SIN ASIGNAR" if x not in ["Dedicado", "Regular"] else x
         )
         df["Coordinador LT"] = df["Coordinador LT"].fillna("SIN ASIGNAR").replace("#N/A", "SIN ASIGNAR")
-        df["Shpt Haulier Name"] = df["Shpt Haulier Name"].fillna("Sin Asignar").apply(remove_accents)
+
+        # --- 🔹 Normalizar encabezado y valores de Shpt Haulier Name ---
+        if "SHPT HAULIER NAME" in df.columns and "Shpt Haulier Name" not in df.columns:
+            df.rename(columns={"SHPT HAULIER NAME": "Shpt Haulier Name"}, inplace=True)
+
+        if "Shpt Haulier Name" in df.columns:
+            df["Shpt Haulier Name"] = df["Shpt Haulier Name"].fillna("Sin Asignar").apply(remove_accents)
+            mask_haulier = df["Shpt Haulier Name"].astype(str).str.strip().str.lower().isin(["por asignar", "por asignarse"])
+            df.loc[mask_haulier, "Shpt Haulier Name"] = "Sin Asignar"
+
         df["Ejecutivo RBO"] = df["Ejecutivo RBO"].fillna("SIN ASIGNAR").replace(["#N/A", "N/A"], "SIN ASIGNAR")
         df["Motivo"] = df["Motivo"].fillna("#N/A").apply(remove_accents).replace("N/A", "#N/A")
 
@@ -158,12 +166,13 @@ if uploaded_file:
             "Agente BPO"
         ] = "Melissa Florian"
 
+        # 🔹 Motivo = "adicionales" → Ana Paniagua
         df.loc[
             df["Motivo"].str.contains("adicionales", case=False, na=False), 
             "Agente BPO"
         ] = "Ana Paniagua"
 
-        # Distribución forzada clientes especiales (La Comer, Fresko, Sumesa, City Market) entre TODOS los agentes actuales
+        # Distribución clientes especiales (La Comer, Fresko, Sumesa, City Market)
         clientes_especiales = ["La Comer", "Fresko", "Sumesa", "City Market"]
         df_especial = df[df["Nombre de oportunidad1"].str.contains('|'.join(clientes_especiales), case=False, na=False)].copy()
         indices_a_repartir = df_especial[df_especial["Agente BPO"] == ""].index.tolist()
@@ -179,7 +188,7 @@ if uploaded_file:
         incontactables = forzadas.get("Agente Incontactable", 0)
         remainder = total - incontactables
 
-        # Penalización 0.25 para dispersión (y Melissa con 25% menos)
+        # Penalización 0.25 y Melissa con 25% menos
         x = remainder / (len(agentes_bpo) - 0.25)
 
         cupo_teorico = {
@@ -194,7 +203,6 @@ if uploaded_file:
 
         indices_sin_asignar = df[df["Agente BPO"] == ""].index.tolist()
 
-        # Asignación round-robin respetando cupos
         while indices_sin_asignar:
             asignado = False
             for agente in agentes_bpo:
@@ -204,13 +212,12 @@ if uploaded_file:
                     disponibles[agente] -= 1
                     asignado = True
             if not asignado:
-                # Si ya no hay cupo, asignar al que tenga más disponibles (o equilibrio)
                 for idx in indices_sin_asignar:
                     mayor = max(disponibles, key=disponibles.get)
                     df.at[idx, "Agente BPO"] = mayor
                 break
 
-        # Balanceo final (excluye a Melissa del promedio especial y a Incontactable)
+        # Balanceo final
         agentes_normales = [ag for ag in agentes_bpo if ag != "Melissa Florian"]
         if "Agente Incontactable" in agentes_normales:
             agentes_normales.remove("Agente Incontactable")
@@ -301,4 +308,3 @@ if uploaded_file:
 
 st.markdown("---")
 st.caption("🚀 Creado por el equipo de BPO Innovations")
-
