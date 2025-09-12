@@ -4,7 +4,8 @@ import unicodedata
 from datetime import datetime, timedelta
 import time
 import os
-import re
+
+#configuración de código para realizar la distribución de agentes de BPO, tomar en cuenta que esto ahorra tiempo 
 
 # Configuración de la página
 st.set_page_config(layout="wide", page_title="🚀 Procesador Chep", page_icon="📊")
@@ -35,7 +36,7 @@ fecha_cierre = fecha_actual.strftime("%d/%m/%Y")
 def remove_accents(text):
     if isinstance(text, str):
         return ''.join(
-            c for c in unicodedata.normalize('NFD', text)
+            c for c in unicodedata.normalize('NFD', text) 
             if unicodedata.category(c) != 'Mn'
         )
     return text
@@ -48,22 +49,15 @@ def asignar_fecha(row):
         elif valor in ["od", "on demand", "bamx"]:
             return fecha_siguiente.strftime("%d/%m/%Y")
     try:
-        fecha = pd.to_datetime(row, errors="coerce")
-        if pd.isna(fecha):
-            return row
+        fecha = pd.to_datetime(row)
         return fecha.strftime("%d/%m/%Y")
     except:
         return row
 
-# ==========================
-# Lista de agentes BPO (sin Christian; con Susi)
-# ==========================
-agentes_bpo = ["Ana Paniagua", "Alysson Garcia", "Nancy Zet", "Melissa Florian", "Susi Galdamez"]
-
-# Sábado: agregar Abigail
-if fecha_actual.weekday() == 5:  # 5 = sábado
-    if "Abigail Vasquez" not in agentes_bpo:
-        agentes_bpo.append("Abigail Vasquez")
+# Lista de agentes BPO sin Christian Tocay
+agentes_bpo = ["Ana Paniagua", "Alysson Garcia", "Nancy Zet", "Melissa Florian"]
+if fecha_actual.weekday() == 5:  # sábado
+    agentes_bpo.append("Abigail Vasquez")
 
 # 🔁 Reemplazo manual de agente (opcional)
 st.subheader("🔁 Reemplazo manual de un agente BPO (opcional)")
@@ -98,6 +92,7 @@ if agente_ausente != "Ninguno":
         agentes_bpo = [agente_reemplazo if ag == agente_ausente else ag for ag in agentes_bpo]
         reemplazo_realizado = True
         reemplazo_info = f"ℹ️ {agente_ausente} fue reemplazado manualmente por {agente_reemplazo}."
+
         st.success(f"✅ {agente_ausente} ha sido reemplazado por {agente_reemplazo}")
 
 if uploaded_file:
@@ -117,103 +112,60 @@ if uploaded_file:
         else:
             df = hoja_correcta.copy()
 
-        # ==========================================
-        # Normalización/limpieza inicial del DataFrame
-        # ==========================================
-        # Reemplazar cualquier referencia previa a Christian por Susi
-        for col in df.columns:
-            if df[col].dtype == object:
-                df[col] = df[col].replace({"Christian Tocay": "Susi Galdamez"})
-
-        # Normalizar algunos campos clave
+        # Limpieza y ajustes
         df["Esquema"] = df["Esquema"].fillna("SIN ASIGNAR").apply(
             lambda x: "SIN ASIGNAR" if x not in ["Dedicado", "Regular"] else x
         )
         df["Coordinador LT"] = df["Coordinador LT"].fillna("SIN ASIGNAR").replace("#N/A", "SIN ASIGNAR")
-        df["Ejecutivo RBO"] = df.get("Ejecutivo RBO", pd.Series(index=df.index, dtype=object)).fillna("SIN ASIGNAR").replace(["#N/A", "N/A"], "SIN ASIGNAR")
+        df["Shpt Haulier Name"] = df["Shpt Haulier Name"].fillna("Sin Asignar").apply(remove_accents)
+        df["Ejecutivo RBO"] = df["Ejecutivo RBO"].fillna("SIN ASIGNAR").replace(["#N/A", "N/A"], "SIN ASIGNAR")
+        df["Motivo"] = df["Motivo"].fillna("#N/A").apply(remove_accents).replace("N/A", "#N/A")
 
-        # --- 🔹 Normalizar encabezado y valores de Shpt Haulier Name ---
-        if "SHPT HAULIER NAME" in df.columns and "Shpt Haulier Name" not in df.columns:
-            df.rename(columns={"SHPT HAULIER NAME": "Shpt Haulier Name"}, inplace=True)
-
-        if "Shpt Haulier Name" in df.columns:
-            df["Shpt Haulier Name"] = df["Shpt Haulier Name"].fillna("Sin Asignar").map(remove_accents)
-            mask_haulier = df["Shpt Haulier Name"].astype(str).str.strip().str.lower().isin(["por asignar", "por asignarse"])
-            df.loc[mask_haulier, "Shpt Haulier Name"] = "Sin Asignar"
-
-        # Normalizar "Motivo": quitar acentos, espacios y controlar N/A
-        if "Motivo" in df.columns:
-            df["Motivo"] = (
-                df["Motivo"]
-                .fillna("#N/A")
-                .astype(str)
-                .map(lambda x: remove_accents(x).strip())
-                .replace({"N/A": "#N/A"})
-            )
-        else:
-            df["Motivo"] = "#N/A"
-
-        # Fechas y campos calculados
-        if "Día de recolección" in df.columns:
-            df["Día de recolección"] = df["Día de recolección"].apply(asignar_fecha)
-            df.rename(columns={"Día de recolección": "Fecha de recolección"}, inplace=True)
-        else:
-            df["Fecha de recolección"] = ""
-
+        df["Día de recolección"] = df["Día de recolección"].apply(asignar_fecha)
+        df.rename(columns={"Día de recolección": "Fecha de recolección"}, inplace=True)
         df["Nombre de oportunidad1"] = df["Delv Ship-To Name"] + " " + fecha_oportunidad
         df["Fecha de cierre"] = fecha_cierre
         df["Etapa"] = "Pendiente de Contacto"
         df["Agente BPO"] = ""
 
-        # ==========================
-        # Asignaciones forzadas (con candado)
-        # ==========================
-        # Incontactables por lista externa
+        # Asignaciones forzadas
         if os.path.exists("Incontactables.xlsx"):
             try:
                 df_incontactables = pd.read_excel("Incontactables.xlsx", sheet_name=0)
                 df["Delv Ship-To Party"] = df["Delv Ship-To Party"].astype(str)
                 df_incontactables["Delv Ship-To Party"] = df_incontactables["Delv Ship-To Party"].astype(str)
                 df.loc[
-                    df["Delv Ship-To Party"].isin(df_incontactables["Delv Ship-To Party"]),
+                    df["Delv Ship-To Party"].isin(df_incontactables["Delv Ship-To Party"]), 
                     "Agente BPO"
                 ] = "Agente Incontactable"
             except Exception as e:
                 st.warning(f"No se pudo procesar 'Incontactables.xlsx'. Error: {e}")
 
-        # Exclusivas de Melissa
+        # Casos especiales
         exclusivas_melissa = ["OXXO", "Axionlog"]
         df.loc[
-            df["Nombre de oportunidad1"].str.contains('|'.join(exclusivas_melissa), case=False, na=False),
+            df["Nombre de oportunidad1"].str.contains('|'.join(exclusivas_melissa), case=False, na=False), 
             "Agente BPO"
         ] = "Melissa Florian"
 
-        # Motivo = "adicional" o "adicionales" (cualquier formato) → Ana Paniagua
         df.loc[
-            df["Motivo"].str.contains(r"\badicional(es)?\b", case=False, na=False),
+            df["Motivo"].str.contains("adicionales", case=False, na=False), 
             "Agente BPO"
         ] = "Ana Paniagua"
 
-        # 👉 Marcar filas bloqueadas para que no se muevan en el balanceo
-        df["Lock Agente"] = df["Agente BPO"].isin(["Ana Paniagua", "Melissa Florian", "Agente Incontactable"])
-
-        # Distribución clientes especiales (La Comer, Fresko, Sumesa, City Market) solo en vacíos
+        # Distribución forzada clientes especiales
         clientes_especiales = ["La Comer", "Fresko", "Sumesa", "City Market"]
         df_especial = df[df["Nombre de oportunidad1"].str.contains('|'.join(clientes_especiales), case=False, na=False)].copy()
-        indices_a_repartir = df_especial[(df_especial["Agente BPO"] == "")].index.tolist()
+        indices_a_repartir = df_especial[df_especial["Agente BPO"] == ""].index.tolist()
         for i, idx in enumerate(indices_a_repartir):
             agente = agentes_bpo[i % len(agentes_bpo)]
             df.at[idx, "Agente BPO"] = agente
 
-        # ==========================
-        # Cálculo de cupo/equilibrio
-        # ==========================
+        # Calcular cupo
         forzadas = df[df["Agente BPO"] != ""].groupby("Agente BPO").size().to_dict()
         total = df.shape[0]
         incontactables = forzadas.get("Agente Incontactable", 0)
         remainder = total - incontactables
-
-        # Penalización 0.25 y Melissa con 25% menos
         x = remainder / (len(agentes_bpo) - 0.25)
 
         cupo_teorico = {
@@ -222,56 +174,47 @@ if uploaded_file:
         }
 
         disponibles = {
-            agente: max(cupo_teorico.get(agente, 0) - forzadas.get(agente, 0), 0)
+            agente: max(cupo_teorico[agente] - forzadas.get(agente, 0), 0)
             for agente in agentes_bpo
         }
 
-        # Asignación round-robin respetando cupos (solo vacíos)
         indices_sin_asignar = df[df["Agente BPO"] == ""].index.tolist()
+
         while indices_sin_asignar:
             asignado = False
             for agente in agentes_bpo:
-                if disponibles.get(agente, 0) > 0 and indices_sin_asignar:
+                if disponibles[agente] > 0 and indices_sin_asignar:
                     idx = indices_sin_asignar.pop(0)
                     df.at[idx, "Agente BPO"] = agente
                     disponibles[agente] -= 1
                     asignado = True
             if not asignado:
-                # Si ya no hay cupo, asignar al que tenga más disponibles
                 for idx in indices_sin_asignar:
                     mayor = max(disponibles, key=disponibles.get)
                     df.at[idx, "Agente BPO"] = mayor
                 break
 
-        # ==========================
-        # Balanceo final SIN mover bloqueados
-        # ==========================
-        agentes_normales = [ag for ag in agentes_bpo if ag not in ["Melissa Florian"]]
+        # Balanceo final
+        agentes_normales = [ag for ag in agentes_bpo if ag != "Melissa Florian"]
         if "Agente Incontactable" in agentes_normales:
             agentes_normales.remove("Agente Incontactable")
 
         conteo_final = df["Agente BPO"].value_counts().to_dict()
-        total_balancear = sum(conteo_final.get(ag, 0) for ag in agentes_normales) if agentes_normales else 0
-        promedio = (total_balancear // len(agentes_normales)) if agentes_normales else 0
+        total_balancear = sum(conteo_final.get(ag, 0) for ag in agentes_normales)
+        promedio = total_balancear // len(agentes_normales)
 
-        agentes_sobra = [(ag, conteo_final.get(ag, 0) - promedio)
-                         for ag in agentes_normales if conteo_final.get(ag, 0) > promedio + 1]
-        agentes_falta = [(ag, promedio - conteo_final.get(ag, 0))
-                         for ag in agentes_normales if conteo_final.get(ag, 0) < promedio]
+        agentes_sobra = [(ag, conteo_final.get(ag, 0) - promedio) for ag in agentes_normales if conteo_final.get(ag, 0) > promedio + 1]
+        agentes_falta = [(ag, promedio - conteo_final.get(ag, 0)) for ag in agentes_normales if conteo_final.get(ag, 0) < promedio]
 
         for ag_sobra, sobra in agentes_sobra:
-            # solo candidatos NO bloqueados
-            candidatos = df[(df["Agente BPO"] == ag_sobra) & (~df["Lock Agente"])].index.tolist()
-            if not candidatos:
-                continue
-            for i in range(len(agentes_falta)):
-                ag_falta, falta = agentes_falta[i]
-                while sobra > 0 and falta > 0 and candidatos:
-                    idx_mover = candidatos.pop(0)
+            for ag_falta, falta in agentes_falta:
+                while sobra > 0 and falta > 0:
+                    idx_mover = df[df["Agente BPO"] == ag_sobra].index[0]
                     df.at[idx_mover, "Agente BPO"] = ag_falta
                     sobra -= 1
                     falta -= 1
-                agentes_falta[i] = (ag_falta, falta)
+                conteo_final[ag_sobra] -= sobra
+                conteo_final[ag_falta] = conteo_final.get(ag_falta, 0) + falta
 
         # Resumen final
         conteo_final = df["Agente BPO"].value_counts().to_dict()
