@@ -54,10 +54,16 @@ def asignar_fecha(row):
     except:
         return row
 
-# Lista de agentes BPO sin Christian Tocay
-agentes_bpo = ["Ana Paniagua", "Alysson Garcia", "Nancy Zet", "Melissa Florian"]
-if fecha_actual.weekday() == 5:  # sábado
-    agentes_bpo.append("Abigail Vasquez")
+# ✅ CAMBIO 1: Lista actualizada de agentes BPO (sin Christian, sin Abigail en sábados)
+# Ahora incluye a Nilton y Susi, y es la misma lista para todos los días
+agentes_bpo = [
+    "Ana Paniagua",
+    "Alysson Garcia", 
+    "Nancy Zet",
+    "Susi Galdamez",
+    "Nilton Martinez",
+    "Melissa Florian"
+]
 
 # 🔁 Reemplazo manual de agente (opcional)
 st.subheader("🔁 Reemplazo manual de un agente BPO (opcional)")
@@ -166,10 +172,10 @@ if uploaded_file:
         total = df.shape[0]
         incontactables = forzadas.get("Agente Incontactable", 0)
         remainder = total - incontactables
-        x = remainder / (len(agentes_bpo) - 0.25)
+        x = remainder / (len(agentes_bpo) - 0.5)
 
         cupo_teorico = {
-            agente: int(0.75 * x) if agente == "Melissa Florian" else int(x)
+            agente: int(0.5 * x) if agente == "Melissa Florian" else int(x)
             for agente in agentes_bpo
         }
 
