@@ -115,13 +115,13 @@ if uploaded_file:
 
         if hoja_correcta is None:
             st.error("No se encontró una hoja que contenga las columnas necesarias.")
-        else:
-            df = hoja_correcta.copy()
+            st.stop()
+        df = hoja_correcta.copy()
 
         # Limpieza y ajustes
-        df["Esquema"] = df["Esquema"].fillna("SIN ASIGNAR").apply(
-            lambda x: "SIN ASIGNAR" if x not in ["Dedicado", "Regular"] else x
-        )
+        # Esquema: solo los campos vacíos pasan a "SIN ASIGNAR"; los valores existentes se respetan
+        esquema = df["Esquema"].astype("string").str.strip()
+        df["Esquema"] = esquema.mask(esquema.isna() | (esquema == ""), "SIN ASIGNAR")
         df["Coordinador LT"] = df["Coordinador LT"].fillna("SIN ASIGNAR").replace("#N/A", "SIN ASIGNAR")
         df["Shpt Haulier Name"] = df["Shpt Haulier Name"].fillna("Sin Asignar").apply(remove_accents)
         df["Ejecutivo RBO"] = df["Ejecutivo RBO"].fillna("SIN ASIGNAR").replace(["#N/A", "N/A"], "SIN ASIGNAR")
